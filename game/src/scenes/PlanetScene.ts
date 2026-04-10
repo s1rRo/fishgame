@@ -158,13 +158,30 @@ export class PlanetScene extends BaseScene {
       (ring.material as THREE.MeshBasicMaterial).opacity = 0.3 + 0.3 * Math.sin(t * 2.5 + i * 1.2);
     }
 
-    // LOD: hide NPC paths when zoomed out far
+    // LOD + Frustum: hide NPC paths when zoomed out or off-screen
     const camDist = this.camera.position.length();
     const showDetails = camDist < 16;
-    for (const np of this.npcPaths) {
-      np.tube.visible = showDetails;
-      np.dot.visible = showDetails;
-      np.label.style.display = showDetails ? '' : 'none';
+    if (showDetails) {
+      const frustum = new THREE.Frustum();
+      const projMatrix = new THREE.Matrix4();
+      projMatrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
+      frustum.setFromProjectionMatrix(projMatrix);
+      const tmpSphere = new THREE.Sphere();
+
+      for (const np of this.npcPaths) {
+        tmpSphere.center.copy(np.dot.position);
+        tmpSphere.radius = 1.0;
+        const inFrustum = frustum.intersectsSphere(tmpSphere);
+        np.tube.visible = inFrustum;
+        np.dot.visible = inFrustum;
+        np.label.style.display = inFrustum ? '' : 'none';
+      }
+    } else {
+      for (const np of this.npcPaths) {
+        np.tube.visible = false;
+        np.dot.visible = false;
+        np.label.style.display = 'none';
+      }
     }
   }
 

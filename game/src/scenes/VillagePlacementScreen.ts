@@ -15,6 +15,7 @@ import {
   isInArgentinaBounds,
   checkVillageConflict,
 } from '../utils/ArgentinaSystem';
+import { WATER_FEATURES, snapToNearestWater, isNearWater } from '../data/waterFeatures';
 
 export class VillagePlacementScreen extends BaseScene {
   private controls: OrbitControls | null = null;
@@ -155,6 +156,36 @@ export class VillagePlacementScreen extends BaseScene {
       ctx.fillText(b.label, x, y + 4);
     }
 
+    // Водные объекты (реки и озёра)
+    for (const feature of WATER_FEATURES) {
+      const waterColor = feature.type === 'lake' ? '#1a6e9e' : '#1565a0';
+      ctx.strokeStyle = waterColor;
+      ctx.lineWidth = feature.type === 'lake' ? 3 : 2;
+      ctx.fillStyle = feature.type === 'lake' ? 'rgba(26,110,158,0.4)' : 'transparent';
+
+      ctx.beginPath();
+      for (let i = 0; i < feature.points.length; i++) {
+        const px = ((feature.points[i].lon - ARGENTINA_BOUNDS.lonMin) / (ARGENTINA_BOUNDS.lonMax - ARGENTINA_BOUNDS.lonMin)) * w;
+        const py = ((ARGENTINA_BOUNDS.latMax - feature.points[i].lat) / (ARGENTINA_BOUNDS.latMax - ARGENTINA_BOUNDS.latMin)) * h;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      if (feature.type === 'lake') {
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.stroke();
+
+      // Label
+      const midIdx = Math.floor(feature.points.length / 2);
+      const lx = ((feature.points[midIdx].lon - ARGENTINA_BOUNDS.lonMin) / (ARGENTINA_BOUNDS.lonMax - ARGENTINA_BOUNDS.lonMin)) * w;
+      const ly = ((ARGENTINA_BOUNDS.latMax - feature.points[midIdx].lat) / (ARGENTINA_BOUNDS.latMax - ARGENTINA_BOUNDS.latMin)) * h;
+      ctx.font = '9px sans-serif';
+      ctx.fillStyle = '#5dade2';
+      ctx.textAlign = 'center';
+      ctx.fillText(feature.name, lx, ly - 6);
+    }
+
     ctx.font = 'bold 16px sans-serif';
     ctx.fillStyle = '#27ae60';
     ctx.textAlign = 'center';
@@ -185,16 +216,35 @@ export class VillagePlacementScreen extends BaseScene {
     this.currentLon = ARGENTINA_BOUNDS.lonMin + ((snappedX + 10) / 20) * (ARGENTINA_BOUNDS.lonMax - ARGENTINA_BOUNDS.lonMin);
 
     const inBounds = isInArgentinaBounds(this.currentLat, this.currentLon);
+    const nearWater = isNearWater(this.currentLat, this.currentLon, 2.5);
     // Пока нет существующих деревень — пустой массив
-    this.hasConflict = !inBounds || checkVillageConflict([], this.currentLat, this.currentLon);
+    this.hasConflict = !inBounds || !nearWater || checkVillageConflict([], this.currentLat, this.currentLon);
+
+    // Snap to nearest water if close enough
+    if (inBounds && !nearWater) {
+      const snap = snapToNearestWater(this.currentLat, this.currentLon, 5.0);
+      if (snap) {
+        this.currentLat = snap.lat;
+        this.currentLon = snap.lon;
+        // Update marker position based on snapped coordinates
+        const sx = ((this.currentLon - ARGENTINA_BOUNDS.lonMin) / (ARGENTINA_BOUNDS.lonMax - ARGENTINA_BOUNDS.lonMin)) * 20 - 10;
+        const sz = ((ARGENTINA_BOUNDS.latMax - this.currentLat) / (ARGENTINA_BOUNDS.latMax - ARGENTINA_BOUNDS.latMin)) * 24 - 12;
+        this.previewMarker.position.set(sx, 0.1, sz);
+        this.hasConflict = false;
+      }
+    }
 
     const mat = this.previewMarker.material as THREE.MeshBasicMaterial;
-    mat.color.setHex(this.hasConflict ? 0xe74c3c : 0x27ae60);
+    mat.color.setHex(this.hasConflict ? 0xe74c3c : nearWater ? 0x27ae60 : 0xf39c12);
 
     if (this.tooltip) {
-      this.tooltip.textContent = this.hasConflict
-        ? '❌ Нельзя разместить здесь'
-        : `📍 ${this.currentLat.toFixed(1)}°, ${this.currentLon.toFixed(1)}°`;
+      if (this.hasConflict) {
+        this.tooltip.textContent = !inBounds
+          ? '\u274C За пределами Аргентины'
+          : !nearWater ? '\u274C Нужна близость к воде \uD83C\uDF0A' : '\u274C Нельзя разместить здесь';
+      } else {
+        this.tooltip.textContent = `\uD83D\uDCCD ${this.currentLat.toFixed(1)}\u00B0, ${this.currentLon.toFixed(1)}\u00B0 \uD83C\uDF0A`;
+      }
     }
   }
 

@@ -318,6 +318,11 @@ export class SeasonPassScene extends BaseScene {
       let msg = 'Награда получена!';
       if (type === 'softCoins') msg = `+${amount} 💰`;
       else if (type === 'gems') msg = `+${amount} 💎`;
+      else if (type === 'npc') msg = `🎉 Новый NPC!`;
+      else if (type === 'pet') msg = `🐾 Новый питомец!`;
+      else if (type === 'cosmetic') msg = `✨ Новый скин!`;
+      else if (type === 'item') msg = `📦 +${amount} предметов`;
+      else if (type === 'title') msg = `🏆 Новый титул!`;
       this.hud.showToast(msg, 'success');
       overlay.remove();
       this.sceneManager.startScene('SeasonPassScene');

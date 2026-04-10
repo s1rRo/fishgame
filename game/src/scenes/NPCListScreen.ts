@@ -1,20 +1,35 @@
 // ============================================================
-// NPC LIST SCREEN — список NPC игрока + найм
+// NPC LIST SCREEN — список NPC игрока + найм (с 3D превью)
 // Из Code_tz/05_NPC_PET_SCREENS.md
-// HTML попап на document.body
+// HTML попап на document.body + inline WebGL canvas для NPC моделей
 // ============================================================
 
+import * as THREE from 'three';
 import { BaseScene } from '../core/BaseScene';
 import { AuthService } from '../services/AuthService';
 import { DatabaseService } from '../services/DatabaseService';
 import { AudioManager } from '../services/AudioManager';
 import { NPC_DATABASE, getNPCById } from '../data/npcDatabase';
 import { NPC_RARITY_STATS } from '../models/NPC';
-import { addEscHandler, getButtonStyle } from '../ui/DesignSystem';
+import { createNPCModel, animateNPCBobWalk } from '../utils/LowPolyStyle';
+import {
+  addEscHandler, getOverlayStyle, getCardStyle, getTitleStyle,
+  getButtonStyle, getButtonRowStyle, applyButtonHover, createCloseButton,
+} from '../ui/DesignSystem';
+
+/** Inline 3D preview handle for cleanup */
+interface NPCPreview {
+  renderer: THREE.WebGLRenderer;
+  scene: THREE.Scene;
+  camera: THREE.PerspectiveCamera;
+  model: THREE.Group;
+  raf: number;
+}
 
 export class NPCListScreen extends BaseScene {
   private overlay: HTMLDivElement | null = null;
   private removeEsc: (() => void) | null = null;
+  private previews: NPCPreview[] = [];
 
   start(_data?: any): void {
     this.scene.background = null;
@@ -27,8 +42,17 @@ export class NPCListScreen extends BaseScene {
     super.stop();
     this.removeEsc?.();
     this.removeEsc = null;
+    this.disposePreviews();
     this.overlay?.remove();
     this.overlay = null;
+  }
+
+  private disposePreviews(): void {
+    for (const p of this.previews) {
+      cancelAnimationFrame(p.raf);
+      p.renderer.dispose();
+    }
+    this.previews = [];
   }
 
   private async showScreen(): Promise<void> {
@@ -40,88 +64,169 @@ export class NPCListScreen extends BaseScene {
 
     const ownedIds = player.activeNPCIds ?? [];
 
-    this.overlay = document.createElement('div');
-    this.overlay.style.cssText = `
-      position:fixed;top:0;left:0;width:100%;height:100%;
-      background:rgba(0,0,0,0.8);z-index:1000;
-      display:flex;align-items:center;justify-content:center;
-    `;
-
     const rarityColors: Record<string, string> = {
-      common: '#95a5a6', uncommon: '#3498db', rare: '#9b59b6', epic: '#e74c3c', legendary: '#f39c12',
+      common: '#95a5a6', uncommon: '#3498db', rare: '#9b59b6',
+      epic: '#e74c3c', legendary: '#f39c12',
     };
 
-    const npcCards = NPC_DATABASE.filter(n => !n.seasonalOnly || ownedIds.includes(n.id)).map(npc => {
+    this.overlay = document.createElement('div');
+    this.overlay.style.cssText = getOverlayStyle();
+
+    const card = document.createElement('div');
+    card.style.cssText = getCardStyle(720) + 'text-align:center;max-height:85vh;overflow-y:auto;';
+
+    // Заголовок
+    const title = document.createElement('h2');
+    title.style.cssText = getTitleStyle();
+    title.textContent = '\uD83D\uDC65 NPC ПОМОЩНИКИ';
+    card.appendChild(title);
+    card.appendChild(createCloseButton(() => this.goBack()));
+
+    // Инфо
+    const info = document.createElement('p');
+    info.style.cssText = 'color:#95a5a6;font-size:13px;margin-bottom:16px;';
+    info.textContent = `В отряде: ${ownedIds.length} / 3 | \uD83D\uDC8E ${player.gems} гемов`;
+    card.appendChild(info);
+
+    // Сетка NPC
+    const grid = document.createElement('div');
+    grid.style.cssText = 'display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:20px;';
+
+    const visibleNPCs = NPC_DATABASE.filter(n => !n.seasonalOnly || ownedIds.includes(n.id));
+
+    for (const npc of visibleNPCs) {
       const owned = ownedIds.includes(npc.id);
       const color = rarityColors[npc.rarity] ?? '#95a5a6';
-      return `
-        <div class="npc-card" data-id="${npc.id}" style="
-          background:rgba(0,0,0,0.4);border:1px solid ${color};border-radius:8px;
-          padding:12px;cursor:pointer;transition:transform 0.2s;min-width:140px;
-          ${owned ? '' : 'opacity:0.6;'}
-        ">
-          <div style="width:48px;height:48px;border-radius:50%;background:#${npc.avatarMeshColor.toString(16).padStart(6, '0')};margin:0 auto 8px;"></div>
-          <p style="font-weight:bold;font-size:14px;margin:0;">${npc.name}</p>
-          <p style="color:${color};font-size:11px;text-transform:uppercase;margin:2px 0;">${npc.rarity}</p>
-          <p style="font-size:11px;color:#95a5a6;">🎣${npc.predisposition.fish}% 🪵${npc.predisposition.wood}% 🪨${npc.predisposition.stone}%</p>
-          ${owned ? '<p style="color:#27ae60;font-size:11px;">✅ В отряде</p>' : `<p style="font-size:11px;">💎 ${npc.basePrice || '—'}</p>`}
-        </div>
+
+      const npcCard = document.createElement('div');
+      npcCard.style.cssText = `
+        background:rgba(0,0,0,0.4);border:1px solid ${color};border-radius:8px;
+        padding:12px;cursor:pointer;transition:transform 0.2s;min-width:140px;
+        ${owned ? '' : 'opacity:0.5;'}
       `;
-    }).join('');
+      npcCard.addEventListener('mouseenter', () => { npcCard.style.transform = 'scale(1.05)'; });
+      npcCard.addEventListener('mouseleave', () => { npcCard.style.transform = 'scale(1)'; });
 
-    this.overlay.innerHTML = `
-      <div style="
-        background:linear-gradient(135deg,#1a2a4a,#0d1b2a);
-        border:2px solid #3498db;border-radius:16px;padding:24px;
-        max-width:700px;width:95%;max-height:85vh;overflow-y:auto;
-        font-family:'Rajdhani',sans-serif;color:white;
-      ">
-        <h2 style="font-family:'Press Start 2P',monospace;font-size:13px;color:#f39c12;text-align:center;margin-bottom:16px;">
-          👥 NPC ПОМОЩНИКИ
-        </h2>
-        <p style="text-align:center;color:#95a5a6;margin-bottom:16px;">
-          В отряде: ${ownedIds.length} / 3 | 💎 ${player.gems} гемов
-        </p>
+      // 3D canvas preview
+      const canvasWrap = document.createElement('div');
+      canvasWrap.style.cssText = 'width:80px;height:80px;margin:0 auto 8px;border-radius:50%;overflow:hidden;';
+      npcCard.appendChild(canvasWrap);
 
-        <div style="display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-bottom:20px;">
-          ${npcCards}
-        </div>
+      // Имя
+      const nameP = document.createElement('p');
+      nameP.style.cssText = 'font-weight:bold;font-size:14px;margin:0;color:#ecf0f1;';
+      nameP.textContent = npc.name;
+      npcCard.appendChild(nameP);
 
-        <div style="text-align:center;">
-          <button id="npc-hire" style="${getButtonStyle('secondary', 'lg')}margin-right:8px;">🎲 Нанять (150 💎)</button>
-          <button id="npc-back" style="${getButtonStyle('back', 'md')}">← НАЗАД</button>
-        </div>
-      </div>
-    `;
+      // Редкость
+      const rarP = document.createElement('p');
+      rarP.style.cssText = `color:${color};font-size:11px;text-transform:uppercase;margin:2px 0;`;
+      rarP.textContent = npc.rarity;
+      npcCard.appendChild(rarP);
 
+      // Характеристики
+      const statsP = document.createElement('p');
+      statsP.style.cssText = 'font-size:11px;color:#95a5a6;margin:2px 0;';
+      statsP.textContent = `\uD83C\uDFA3${npc.predisposition.fish}% \uD83E\uDEB5${npc.predisposition.wood}% \uD83E\uDEA8${npc.predisposition.stone}%`;
+      npcCard.appendChild(statsP);
+
+      // Статус
+      const statusP = document.createElement('p');
+      statusP.style.cssText = `font-size:11px;color:${owned ? '#27ae60' : '#95a5a6'};margin:2px 0;`;
+      statusP.textContent = owned ? '\u2705 В отряде' : `\uD83D\uDC8E ${npc.basePrice || '\u2014'}`;
+      npcCard.appendChild(statusP);
+
+      // Click → detail
+      if (owned) {
+        npcCard.addEventListener('click', () => {
+          this.sceneManager.startScene('NPCDetailScreen', { npcId: npc.id });
+        });
+      }
+
+      grid.appendChild(npcCard);
+
+      // Create 3D preview after card is in DOM
+      requestAnimationFrame(() => this.create3DPreview(canvasWrap, npc.avatarMeshColor, npc.rarity));
+    }
+
+    card.appendChild(grid);
+
+    // Кнопки
+    const btnRow = document.createElement('div');
+    btnRow.style.cssText = getButtonRowStyle();
+
+    const hireBtn = document.createElement('button');
+    hireBtn.textContent = '\uD83C\uDFB2 Нанять (150 \uD83D\uDC8E)';
+    hireBtn.style.cssText = getButtonStyle('secondary', 'lg');
+    applyButtonHover(hireBtn);
+    hireBtn.addEventListener('click', () => this.hireNPC(player, user.uid));
+    btnRow.appendChild(hireBtn);
+
+    const backBtn = document.createElement('button');
+    backBtn.textContent = '\u2190 НАЗАД';
+    backBtn.style.cssText = getButtonStyle('back', 'md');
+    applyButtonHover(backBtn);
+    backBtn.addEventListener('click', () => this.goBack());
+    btnRow.appendChild(backBtn);
+
+    card.appendChild(btnRow);
+    this.overlay.appendChild(card);
     document.body.appendChild(this.overlay);
 
     this.removeEsc = addEscHandler(() => this.goBack());
-
-    // Клик по карточке → NPCDetailScreen
-    this.overlay.querySelectorAll('.npc-card').forEach(card => {
-      card.addEventListener('click', () => {
-        const id = (card as HTMLElement).dataset.id;
-        if (id && ownedIds.includes(id)) {
-          this.sceneManager.startScene('NPCDetailScreen', { npcId: id });
-        }
-      });
-    });
-
-    this.overlay.querySelector('#npc-hire')?.addEventListener('click', () => {
-      this.hireNPC(player, user.uid);
-    });
-
-    this.overlay.querySelector('#npc-back')?.addEventListener('click', () => this.goBack());
+    this.overlay.addEventListener('click', (e) => { if (e.target === this.overlay) this.goBack(); });
   }
 
+  // ── Inline 3D NPC Preview ────────────────────────────────
+  private create3DPreview(container: HTMLElement, skinColor: number, rarity: string): void {
+    const size = 80;
+
+    const renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+    renderer.setSize(size, size);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setClearColor(0x000000, 0);
+    container.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+    const dirLight = new THREE.DirectionalLight(0xffd700, 0.8);
+    dirLight.position.set(2, 3, 2);
+    scene.add(dirLight);
+
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 10);
+    camera.position.set(0, 0.6, 2.2);
+    camera.lookAt(0, 0.5, 0);
+
+    const model = createNPCModel(skinColor, rarity, 0.6);
+    model.userData.baseY = 0;
+    scene.add(model);
+
+    let running = true;
+    const clock = new THREE.Clock();
+    let rafId = 0;
+
+    const animate = () => {
+      if (!running) return;
+      rafId = requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      // Медленное вращение + idle bob
+      model.rotation.y = t * 0.8;
+      animateNPCBobWalk(model, t, false);
+      renderer.render(scene, camera);
+    };
+    animate();
+
+    this.previews.push({ renderer, scene, camera, model, raf: rafId });
+  }
+
+  // ── Найм NPC ────────────────────────────────────────────
   private async hireNPC(player: any, uid: string): Promise<void> {
     if (player.gems < 150) {
-      alert('Недостаточно гемов!');
+      this.showToast('\u274C Недостаточно гемов!', '#e74c3c');
       return;
     }
     if ((player.activeNPCIds?.length ?? 0) >= 3) {
-      alert('Максимум 3 NPC!');
+      this.showToast('\u274C Максимум 3 NPC!', '#e74c3c');
       return;
     }
 
@@ -135,7 +240,10 @@ export class NPCListScreen extends BaseScene {
     else rarity = 'common';
 
     const candidates = NPC_DATABASE.filter(n => n.rarity === rarity && !player.activeNPCIds?.includes(n.id));
-    if (candidates.length === 0) return;
+    if (candidates.length === 0) {
+      this.showToast('\u274C Нет доступных NPC этой редкости', '#e74c3c');
+      return;
+    }
 
     const npc = candidates[Math.floor(Math.random() * candidates.length)];
 
@@ -148,10 +256,26 @@ export class NPCListScreen extends BaseScene {
     });
 
     AudioManager.getInstance().playSFX('level_up');
+    this.showToast(`\uD83C\uDF89 Нанят: ${npc.name} (${npc.rarity})!`, '#27ae60');
 
     // Перерисовать
+    this.disposePreviews();
     this.overlay?.remove();
     this.showScreen();
+  }
+
+  // ── Утилиты ──────────────────────────────────────────────
+  private showToast(msg: string, color: string): void {
+    const toast = document.createElement('div');
+    toast.style.cssText = `
+      position:fixed;top:80px;left:50%;transform:translateX(-50%);
+      background:${color};color:#fff;padding:10px 24px;border-radius:6px;
+      font-family:'Rajdhani',sans-serif;font-size:14px;font-weight:bold;
+      z-index:10001;animation:rlToastIn 0.3s ease;
+    `;
+    toast.textContent = msg;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 3000);
   }
 
   private goBack(): void {
