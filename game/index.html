@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <meta name="theme-color" content="#0a1628" />
+    <meta name="description" content="River Lord: Pixel Fishery — 3D браузерная игра про рыбалку и ферму" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="River Lord" />
+    <link rel="apple-touch-icon" href="/assets/images/icon-192.png" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="icon" href="data:,">
+    <title>RIVER LORD: Pixel Fishery</title>
+
+    <!-- Google Fonts: pixel + clean UI -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+    <!-- Google Analytics -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-H7BT3PMFD6"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-H7BT3PMFD6');
+    </script>
+
+    <style>
+      /* ════════════════════════════════════════════════════════
+         RIVER LORD: PIXEL FISHERY — Global Styles v2.0
+         Design Language: Dark Low-Poly Pixel Art + Neon Accents
+         Pallete: #0a1628 bg · #1a2a3a surface · #3498db accent
+                  #27ae60 green · #e74c3c red · #f39c12 gold
+         ════════════════════════════════════════════════════════ */
+
+      /* ── RESET ── */
+      *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+      /* ── CSS VARIABLES ── */
+      :root {
+        /* Основные */
+        --bg:         #0a1628;
+        --surface:    #0d1f35;
+        --surface2:   #132840;
+        --surface3:   #1a3350;
+        --border:     rgba(52,152,219,0.4);
+        --border2:    rgba(255,255,255,0.12);
+
+        /* Акценты */
+        --accent:     #3498db;
+        --accent2:    #5dade2;
+        --blue:       #3498db;
+        --blue-glow:  rgba(52,152,219,0.4);
+        --green:      #27ae60;
+        --green2:     #2ecc71;
+        --green-glow: rgba(39,174,96,0.4);
+        --red:        #e74c3c;
+        --gold:       #f39c12;
+        --gold2:      #f1c40f;
+        --gold-glow:  rgba(243,156,18,0.4);
+        --purple:     #9b59b6;
+
+        /* Текст */
+        --text:       #e8f4fd;
+        --text-dim:   #8fadc4;
+        --text-muted: #4a6a85;
+
+        /* Шрифты */
+        --font-pixel: 'Press Start 2P', 'Courier New', monospace;
+        --font-ui:    'Rajdhani', 'Courier New', monospace;
+
+        /* Эффекты */
+        --pixel-border: 2px solid var(--blue);
+        --card-shadow:  0 4px 20px rgba(0,0,0,0.6), 0 0 0 1px rgba(52,152,219,0.2);
+        --glow-blue:  0 0 15px rgba(52,152,219,0.5), 0 0 30px rgba(52,152,219,0.2);
+        --glow-green: 0 0 15px rgba(39,174,96,0.5), 0 0 30px rgba(39,174,96,0.2);
+        --glow-gold:  0 0 15px rgba(243,156,18,0.5), 0 0 30px rgba(243,156,18,0.2);
+        --shadow-px:  4px 4px 0 rgba(0,0,0,0.6);
+        --shadow-lg:  0 8px 32px rgba(0,0,0,0.8);
+
+        /* Геометрия */
+        --clip-btn:   polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+        --clip-card:  polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+        --radius-sm:  4px;
+        --radius-md:  8px;
+        --radius-lg:  12px;
+      }
+
+      body {
+        background: var(--bg);
+        overflow: hidden;
+        touch-action: none;
+        font-family: var(--font-ui);
+        color: var(--text);
+        -webkit-tap-highlight-color: transparent;
+        user-select: none;
+        image-rendering: pixelated;
+      }
+
+      #game-container {
+        position: relative;
+        width: 100vw;
+        height: 100vh;
+        height: 100dvh;
+      }
+
+      #game-canvas {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        z-index: 1;
+        display: block;
+      }
+
+      #ui-layer {
+        position: absolute;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        z-index: 10;
+        pointer-events: none;
+        overflow: hidden;
+      }
+
+      /* ── КНОПКИ — НОВАЯ СИСТЕМА ── */
+      .btn-primary {
+        font-family: var(--font-pixel);
+        font-size: 10px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: white;
+        background: linear-gradient(135deg, #2980b9, #3498db);
+        border: none;
+        clip-path: var(--clip-btn);
+        padding: 12px 24px;
+        cursor: pointer;
+        box-shadow: var(--glow-blue);
+        transition: all 0.15s ease;
+        pointer-events: auto;
+      }
+      .btn-primary:hover {
+        background: linear-gradient(135deg, #3498db, #5dade2);
+        transform: translateY(-1px);
+      }
+      .btn-primary:active { transform: translateY(1px); }
+
+      .btn-secondary {
+        font-family: var(--font-ui);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--blue);
+        background: transparent;
+        border: 1px solid var(--blue);
+        padding: 10px 20px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        transition: all 0.15s ease;
+        pointer-events: auto;
+      }
+      .btn-secondary:hover { background: rgba(52,152,219,0.12); }
+
+      .btn-gold {
+        font-family: var(--font-pixel);
+        font-size: 10px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        color: white;
+        background: linear-gradient(135deg, #e67e22, #f39c12);
+        border: none;
+        clip-path: var(--clip-btn);
+        padding: 12px 24px;
+        cursor: pointer;
+        box-shadow: var(--glow-gold);
+        transition: all 0.15s ease;
+        pointer-events: auto;
+      }
+      .btn-gold:hover {
+        background: linear-gradient(135deg, #f39c12, #f1c40f);
+        transform: translateY(-1px);
+      }
+      .btn-gold:active { transform: translateY(1px); }
+
+      /* ── КАРТОЧКИ — НОВАЯ СИСТЕМА ── */
+      .card {
+        background: var(--surface);
+        border: 1px solid rgba(52,152,219,0.2);
+        clip-path: var(--clip-card);
+        padding: 16px;
+        box-shadow: var(--card-shadow);
+      }
+      .card:hover {
+        border-color: rgba(52,152,219,0.5);
+        box-shadow: var(--glow-blue), var(--card-shadow);
+      }
+
+      /* ── ПОПАПЫ — НОВАЯ СИСТЕМА ── */
+      .popup-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(5,12,25,0.85);
+        backdrop-filter: blur(4px);
+        z-index: 1000;
+        display: flex; align-items: center; justify-content: center;
+        animation: fadeIn 0.2s ease;
+        pointer-events: auto;
+      }
+      .popup-box {
+        background: var(--surface);
+        border: 1px solid var(--blue);
+        clip-path: var(--clip-card);
+        padding: 24px;
+        max-width: 420px;
+        width: 90%;
+        box-shadow: var(--glow-blue), var(--card-shadow);
+        animation: scaleIn 0.2s ease;
+      }
+      @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+      @keyframes scaleIn { from { opacity:0; transform:scale(0.9) } to { opacity:1; transform:scale(1) } }
+
+      /* ── TOP HUD — НОВЫЙ ── */
+      .top-hud {
+        position: fixed; top: 0; left: 0; right: 0;
+        height: 52px;
+        background: linear-gradient(180deg, rgba(10,22,40,0.95) 0%, rgba(10,22,40,0.7) 100%);
+        border-bottom: 1px solid rgba(52,152,219,0.2);
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 16px;
+        z-index: 100;
+        backdrop-filter: blur(8px);
+        pointer-events: none;
+      }
+      .hud-currency {
+        display: flex; align-items: center; gap: 6px;
+        font-family: var(--font-ui); font-size: 16px; font-weight: 700;
+        pointer-events: none;
+      }
+      .hud-coins { color: var(--gold); }
+      .hud-gems  { color: var(--purple); }
+      .hud-actions { display: flex; gap: 8px; pointer-events: auto; }
+      .hud-actions button {
+        background: rgba(52,152,219,0.1);
+        border: 1px solid rgba(52,152,219,0.3);
+        color: var(--text-dim);
+        width: 36px; height: 36px;
+        border-radius: var(--radius-sm);
+        cursor: pointer;
+        font-size: 16px;
+        transition: all 0.15s;
+      }
+      .hud-actions button:hover {
+        background: rgba(52,152,219,0.2);
+        color: var(--text);
+      }
+
+      /* ── PROGRESS BAR — НОВАЯ СИСТЕМА ── */
+      .progress-bar {
+        height: 12px;
+        background: rgba(255,255,255,0.08);
+        border-radius: 2px;
+        overflow: hidden;
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+      .progress-fill {
+        height: 100%;
+        border-radius: 2px;
+        transition: width 0.15s linear;
+        background: linear-gradient(90deg, var(--green), var(--green2));
+      }
+      .progress-fill.danger { background: linear-gradient(90deg, #e74c3c, #ff6b6b); }
+      .progress-fill.gold   { background: linear-gradient(90deg, #e67e22, #f39c12); }
+
+      /* ── КНОПКИ ПИКСЕЛЬНЫЕ (legacy) ── */
+      .pixel-btn {
+        pointer-events: auto;
+        position: relative;
+        background: var(--green);
+        border: 3px solid rgba(255,255,255,0.8);
+        color: #fff;
+        padding: 14px 28px;
+        font-size: 14px;
+        font-weight: 700;
+        font-family: var(--font-pixel);
+        text-transform: uppercase;
+        cursor: pointer;
+        letter-spacing: 1px;
+        min-height: 48px;
+        min-width: 64px;
+        clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+        transition: filter 0.15s ease, transform 0.1s ease;
+        box-shadow: var(--shadow-px), var(--glow-green);
+        text-shadow: 2px 2px 0 rgba(0,0,0,0.5);
+      }
+      .pixel-btn:hover  { filter: brightness(1.25); transform: translateY(-2px); }
+      .pixel-btn:active { transform: translateY(1px); filter: brightness(0.9); }
+
+      .pixel-btn.blue {
+        background: var(--accent);
+        box-shadow: var(--shadow-px), var(--glow-blue);
+      }
+      .pixel-btn.red {
+        background: var(--red);
+        box-shadow: var(--shadow-px), 0 0 20px rgba(231,76,60,0.5);
+      }
+      .pixel-btn.gold {
+        background: var(--gold);
+        box-shadow: var(--shadow-px), var(--glow-gold);
+        color: #1a1a1a;
+      }
+      .pixel-btn.purple {
+        background: var(--purple);
+        box-shadow: var(--shadow-px), 0 0 20px rgba(142,68,173,0.5);
+      }
+
+      /* ── КАРТОЧКИ / ПАНЕЛИ ── */
+      .game-card {
+        background: linear-gradient(135deg, var(--surface2) 0%, var(--surface) 100%);
+        border: 2px solid var(--border);
+        border-radius: 0;
+        clip-path: polygon(0 0, calc(100% - 12px) 0, 100% 12px, 100% 100%, 12px 100%, 0 calc(100% - 12px));
+        box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.05);
+        padding: 24px 28px;
+        backdrop-filter: blur(8px);
+      }
+
+      /* ── ПОЛОСКА ПРОГРЕССА ── */
+      .prog-bar-wrap {
+        background: rgba(0,0,0,0.4);
+        border: 2px solid var(--border2);
+        height: 14px;
+        position: relative;
+        overflow: hidden;
+        clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 4px 100%, 0 calc(100% - 4px));
+      }
+      .prog-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), var(--accent2));
+        box-shadow: 0 0 8px var(--accent);
+        transition: width 0.4s ease;
+        position: relative;
+      }
+      .prog-bar-fill::after {
+        content: '';
+        position: absolute;
+        right: 0; top: 0; bottom: 0;
+        width: 4px;
+        background: rgba(255,255,255,0.8);
+        box-shadow: 0 0 6px #fff;
+      }
+
+      /* ── BADGE / ЧИПЫ ── */
+      .game-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 5px 12px;
+        background: rgba(0,0,0,0.4);
+        border: 2px solid var(--border);
+        font-family: var(--font-ui);
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text);
+        white-space: nowrap;
+        clip-path: polygon(0 0, calc(100% - 5px) 0, 100% 5px, 100% 100%, 5px 100%, 0 calc(100% - 5px));
+      }
+
+      /* ── POPUP OVERLAY ── */
+      .rl-overlay {
+        position: fixed; inset: 0;
+        background: rgba(0, 5, 15, 0.85);
+        backdrop-filter: blur(4px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9998;
+        pointer-events: auto;
+        animation: rlFadeIn 0.2s ease;
+      }
+      .rl-popup {
+        background: linear-gradient(160deg, #0f1e30 0%, #0a1628 100%);
+        border: 2px solid var(--border);
+        max-width: 520px;
+        width: 92vw;
+        padding: 36px 40px;
+        text-align: center;
+        position: relative;
+        clip-path: polygon(0 0, calc(100% - 16px) 0, 100% 16px, 100% 100%, 16px 100%, 0 calc(100% - 16px));
+        box-shadow: var(--shadow-lg), var(--glow-blue);
+        animation: rlPopIn 0.25s cubic-bezier(0.175,0.885,0.32,1.275);
+      }
+      .rl-popup::before {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: linear-gradient(135deg, rgba(52,152,219,0.05) 0%, transparent 60%);
+        pointer-events: none;
+      }
+      /* Декоративные уголки */
+      .rl-popup::after {
+        content: '';
+        position: absolute;
+        top: 8px; right: 8px;
+        width: 24px; height: 24px;
+        border-top: 2px solid var(--accent);
+        border-right: 2px solid var(--accent);
+      }
+
+      .rl-popup-title {
+        font-family: var(--font-pixel);
+        font-size: clamp(13px, 2.5vw, 18px);
+        color: var(--text);
+        text-shadow: 0 0 20px var(--accent);
+        margin-bottom: 16px;
+        line-height: 1.6;
+      }
+      .rl-popup-body {
+        font-family: var(--font-ui);
+        font-size: 16px;
+        color: var(--text-dim);
+        line-height: 1.7;
+        margin-bottom: 28px;
+      }
+      .rl-popup-btns {
+        display: flex;
+        gap: 12px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      /* ── HUD NAVIGATION BAR ── */
+      .nav-bar {
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        height: 64px;
+        background: linear-gradient(0deg, rgba(5,12,22,0.98) 0%, rgba(10,22,40,0.95) 100%);
+        border-top: 2px solid var(--border);
+        display: flex;
+        align-items: stretch;
+        pointer-events: auto;
+        z-index: 50;
+      }
+      .nav-btn {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 3px;
+        background: transparent;
+        border: none;
+        border-right: 1px solid rgba(52,152,219,0.15);
+        color: var(--text-dim);
+        font-family: var(--font-ui);
+        font-size: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        padding: 8px 4px 4px;
+      }
+      .nav-btn .nav-icon { font-size: 20px; line-height: 1; }
+      .nav-btn:hover { background: rgba(52,152,219,0.12); color: var(--accent2); }
+      .nav-btn:last-child { border-right: none; }
+      .nav-btn.active { color: var(--accent); background: rgba(52,152,219,0.08); }
+
+      /* ── TOAST ── */
+      .rl-toast {
+        position: fixed;
+        top: 72px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: var(--surface2);
+        border: 2px solid var(--border);
+        color: var(--text);
+        padding: 10px 24px;
+        font-family: var(--font-ui);
+        font-size: 16px;
+        font-weight: 700;
+        z-index: 9997;
+        pointer-events: none;
+        white-space: nowrap;
+        clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 6px 100%, 0 calc(100% - 6px));
+        box-shadow: var(--shadow-px);
+        animation: rlToastIn 0.3s ease;
+      }
+
+      /* ── TENSION BAR (рыбалка) ── */
+      .tension-fill-green  { background: linear-gradient(90deg, #1a7a3c, #27ae60); box-shadow: 0 0 8px #27ae60; }
+      .tension-fill-orange { background: linear-gradient(90deg, #c77c00, #f39c12); box-shadow: 0 0 8px #f39c12; }
+      .tension-fill-red    { background: linear-gradient(90deg, #8b0000, #e74c3c); box-shadow: 0 0 12px #e74c3c; animation: tensionPulse 0.4s infinite alternate; }
+
+      /* ── ЗАГРУЗОЧНАЯ ПОЛОСКА ── */
+      #boot-progress {
+        height: 100%;
+        background: linear-gradient(90deg, var(--accent), var(--accent2), #a8d4f0);
+        box-shadow: 0 0 12px var(--accent);
+        transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+      }
+      #boot-progress::after {
+        content: '';
+        position: absolute;
+        right: 0; top: 0; bottom: 0;
+        width: 8px;
+        background: rgba(255,255,255,0.9);
+        box-shadow: 0 0 8px #fff;
+      }
+
+      /* ── СКРОЛЛБАР ── */
+      ::-webkit-scrollbar       { width: 6px; }
+      ::-webkit-scrollbar-track { background: rgba(0,0,0,0.3); }
+      ::-webkit-scrollbar-thumb { background: var(--accent); }
+
+      /* ── АНИМАЦИИ ── */
+      @keyframes rlFadeIn {
+        from { opacity: 0; }
+        to   { opacity: 1; }
+      }
+      @keyframes rlPopIn {
+        from { opacity: 0; transform: scale(0.85) translateY(20px); }
+        to   { opacity: 1; transform: scale(1)    translateY(0); }
+      }
+      @keyframes rlToastIn {
+        from { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+        to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+      }
+      @keyframes tensionPulse {
+        from { filter: brightness(1); }
+        to   { filter: brightness(1.4); }
+      }
+      @keyframes floatUp {
+        from { opacity: 1; transform: translateX(-50%) translateY(0); }
+        to   { opacity: 0; transform: translateX(-50%) translateY(-80px); }
+      }
+      @keyframes catchPop {
+        0%   { transform: scale(0); opacity: 0; }
+        60%  { transform: scale(1.2); opacity: 1; }
+        100% { transform: scale(1); }
+      }
+      @keyframes scanline {
+        0%   { transform: translateY(-100%); }
+        100% { transform: translateY(100vh); }
+      }
+      @keyframes borderGlow {
+        0%, 100% { border-color: rgba(52,152,219,0.4); }
+        50%       { border-color: rgba(52,152,219,0.9); }
+      }
+      @keyframes shimmer {
+        0%   { background-position: -200% center; }
+        100% { background-position: 200% center; }
+      }
+      @keyframes pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50%       { opacity: 0.7; transform: scale(0.95); }
+      }
+      @keyframes biteAnim {
+        0%,100% { transform: translateX(-50%) scale(1); }
+        25%     { transform: translateX(-50%) scale(1.1) rotate(-3deg); }
+        75%     { transform: translateX(-50%) scale(1.1) rotate(3deg); }
+      }
+
+      /* ── PWA BANNER ── */
+      #pwa-banner {
+        display: none;
+        position: fixed;
+        bottom: 0; left: 0; right: 0;
+        background: rgba(10,22,40,0.98);
+        border-top: 2px solid var(--border);
+        padding: 14px 20px;
+        z-index: 9999;
+        align-items: center;
+        gap: 14px;
+        font-family: var(--font-ui);
+        color: var(--text);
+      }
+      #pwa-banner.visible { display: flex; }
+      #pwa-banner img { width: 48px; height: 48px; border-radius: 8px; }
+      #pwa-banner .pwa-text { flex: 1; font-size: 15px; line-height: 1.4; font-weight: 600; }
+      #pwa-install-btn {
+        background: var(--accent); color: #fff;
+        border: 2px solid rgba(255,255,255,0.5);
+        padding: 10px 18px; font-size: 14px; font-weight: 700;
+        font-family: var(--font-ui); cursor: pointer;
+        white-space: nowrap; letter-spacing: 1px;
+      }
+      #pwa-dismiss-btn {
+        background: transparent; color: var(--text-dim);
+        border: none; font-size: 18px; cursor: pointer; padding: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="game-container">
+      <canvas id="game-canvas"></canvas>
+      <div id="ui-layer"></div>
+    </div>
+
+    <!-- PWA Install Banner -->
+    <div id="pwa-banner">
+      <img src="/assets/images/icon-192.png" alt="River Lord" onerror="this.style.display='none'" />
+      <div class="pwa-text">
+        <b>River Lord: Pixel Fishery</b><br>
+        Установить на главный экран?
+      </div>
+      <button id="pwa-install-btn">УСТАНОВИТЬ</button>
+      <button id="pwa-dismiss-btn" title="Закрыть">✕</button>
+    </div>
+
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', async () => {
+          // ═══ ПРИНУДИТЕЛЬНЫЙ СБРОС ВСЕХ СТАРЫХ SW И КЭШЕЙ ═══
+          // Шаг 1: Удалить ВСЕ зарегистрированные Service Worker'ы
+          const regs = await navigator.serviceWorker.getRegistrations();
+          for (const reg of regs) {
+            await reg.unregister();
+            console.log('[SW] Unregistered old SW');
+          }
+          // Шаг 2: Удалить ВСЕ кэши без исключений
+          const allCaches = await caches.keys();
+          for (const name of allCaches) {
+            await caches.delete(name);
+            console.log('[SW] Deleted cache:', name);
+          }
+          // Шаг 3: НЕ регистрируем SW в dev-режиме (localhost)
+          // В production — регистрируем свежий SW
+          if (location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            navigator.serviceWorker.register('/sw.js')
+              .then(reg => console.log('[SW] Registered fresh, scope:', reg.scope))
+              .catch(err => console.warn('[SW] Registration failed:', err));
+          } else {
+            console.log('[SW] Dev mode — SW disabled for fresh loads');
+          }
+        });
+      }
+
+      // PWA Install Prompt
+      let deferredPrompt = null;
+      const banner       = document.getElementById('pwa-banner');
+      const installBtn   = document.getElementById('pwa-install-btn');
+      const dismissBtn   = document.getElementById('pwa-dismiss-btn');
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        banner.classList.add('visible');
+      });
+
+      installBtn.addEventListener('click', async () => {
+        banner.classList.remove('visible');
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          const { outcome } = await deferredPrompt.userChoice;
+          if (typeof gtag !== 'undefined') {
+            gtag('event', 'pwa_install', { outcome });
+          }
+          deferredPrompt = null;
+        }
+      });
+
+      dismissBtn.addEventListener('click', () => {
+        banner.classList.remove('visible');
+        deferredPrompt = null;
+      });
+
+      window.addEventListener('appinstalled', () => {
+        banner.classList.remove('visible');
+        console.log('[PWA] App installed!');
+        if (typeof gtag !== 'undefined') gtag('event', 'pwa_installed');
+      });
+    </script>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,20 @@
+node_modules/
+dist/
+.env
+.env.local
+.DS_Store
+*.log
+.vite/
+
+# Large binary assets
+*.glb
+*.gltf
+ассеты/
+
+# Documentation / design docs (not needed in repo)
+docs/
+документы/
+тз/
+Code_tz/
+мусор/
+*.pdf
