@@ -22,6 +22,7 @@ import { ResourceBiomeScreen } from './scenes/ResourceBiomeScreen';
 import { OnboardingFlow } from './scenes/OnboardingFlow';
 import { OfflineSummaryPopup } from './scenes/OfflineSummaryPopup';
 import { LootboxOpenScene } from './scenes/LootboxOpenScene';
+import { CraftingPopup } from './scenes/CraftingPopup';
 import { CheckpointMapScene } from './scenes/CheckpointMapScene';
 import { initGameRouter } from './core/GameRouter';
 
@@ -54,5 +55,6 @@ game.registerScene('OnboardingFlow', OnboardingFlow);
 game.registerScene('OfflineSummaryPopup', OfflineSummaryPopup);
 game.registerScene('LootboxOpenScene', LootboxOpenScene);
 game.registerScene('CheckpointMapScene', CheckpointMapScene);
+game.registerScene('CraftingPopup', CraftingPopup);
 
 game.startScene('BootScene');

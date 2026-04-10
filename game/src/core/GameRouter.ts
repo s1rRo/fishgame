@@ -29,6 +29,7 @@ export const GameRouter = {
   leaderboard:  ()                 => sm.startScene('LeaderboardScene'),
   cosmetics:    ()                 => sm.startScene('CosmeticShopScene'),
   building:     (buildingId: string) => sm.startScene('BuildingScreen', { buildingId }),
+  crafting:     (buildingId: string) => sm.startScene('CraftingPopup', { buildingId }),
   resource:     (biomeId: string)  => sm.startScene('ResourceBiomeScreen', { biomeId }),
   onboarding:   ()                 => sm.startScene('OnboardingFlow'),
   offlineSummary: (nextScene: string, nextData?: any) => sm.startScene('OfflineSummaryPopup', { nextScene, nextData }),

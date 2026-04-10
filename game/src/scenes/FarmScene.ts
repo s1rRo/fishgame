@@ -1247,14 +1247,27 @@ export class FarmScene extends BaseScene {
     TWEEN.update();
     this.particlePool.update(delta);
 
-    // Distance culling for obstacles and buildings
+    // Frustum + distance culling for obstacles and buildings
     if (this.orbitControls) {
       const camTarget = this.orbitControls.target;
-      const cullDist = 35; // world units
+      const cullDist = 35;
+      const frustum = new THREE.Frustum();
+      const projScreenMatrix = new THREE.Matrix4();
+      projScreenMatrix.multiplyMatrices(this.camera.projectionMatrix, this.camera.matrixWorldInverse);
+      frustum.setFromProjectionMatrix(projScreenMatrix);
+      const tmpSphere = new THREE.Sphere();
+
       this.obstacleGroup.children.forEach(c => {
         const dx = c.position.x - camTarget.x;
         const dz = c.position.z - camTarget.z;
-        c.visible = (dx * dx + dz * dz) < cullDist * cullDist;
+        if ((dx * dx + dz * dz) > cullDist * cullDist) {
+          c.visible = false;
+        } else {
+          // Frustum check with bounding sphere
+          tmpSphere.center.copy(c.position);
+          tmpSphere.radius = 2.0; // conservative radius for trees/rocks/buildings
+          c.visible = frustum.intersectsSphere(tmpSphere);
+        }
       });
     }
 
