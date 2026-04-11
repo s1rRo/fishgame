@@ -5,6 +5,8 @@
 // Deficit: deficitMult = Math.max(0.6, 1 - (supply / maxSupply) * 0.75)
 // ============================================================
 
+import { resolveResourceId } from '../utils/IdAliases';
+
 export interface MarketPrice {
   resourceId: string;
   basePrice: number;
@@ -20,10 +22,10 @@ export interface MarketPrice {
 const BASE_PRICES: Record<string, number> = {
   carp: 12, trout: 28, salmon_king: 85, perch: 15,
   carp_smoked: 24, trout_smoked: 56, salmon_smoked: 170,
-  oak_wood: 8, beech_wood: 12,
-  stone: 15, iron_ore: 25,
+  wood_oak: 8, wood_beech: 10,
+  stone: 15, ore_iron: 20,
   herb_patagonia: 10,
-  worm: 5, moth: 35, lure: 25, fly: 80, bread: 8,
+  worm: 5, moth: 35, lure: 25, fly_lure: 80, bread: 8,
   fish_hook: 18,
 };
 
@@ -73,14 +75,15 @@ export class EconomyManager {
 
   /** Получить текущую цену */
   getCurrentPrice(resourceId: string): number {
-    const mp = this.prices.get(resourceId);
-    if (!mp) return BASE_PRICES[resourceId] ?? 10;
+    const canonicalId = resolveResourceId(resourceId);
+    const mp = this.prices.get(canonicalId);
+    if (!mp) return BASE_PRICES[canonicalId] ?? BASE_PRICES[resourceId] ?? 10;
     return mp.currentPrice;
   }
 
   /** Получить полную информацию о цене */
   getPriceInfo(resourceId: string): MarketPrice | undefined {
-    return this.prices.get(resourceId);
+    return this.prices.get(resolveResourceId(resourceId));
   }
 
   /** Получить топ-3 изменения цен */
@@ -93,7 +96,8 @@ export class EconomyManager {
 
   /** Обновить supply (после продажи/покупки) */
   updateSupply(resourceId: string, delta: number): void {
-    const mp = this.prices.get(resourceId);
+    const canonicalId = resolveResourceId(resourceId);
+    const mp = this.prices.get(canonicalId);
     if (!mp) return;
 
     const oldPrice = mp.currentPrice;
@@ -103,12 +107,13 @@ export class EconomyManager {
     mp.lastUpdated = Date.now();
 
     // Уведомить слушателей
-    this.notifyListeners(resourceId, mp.currentPrice);
+    this.notifyListeners(canonicalId, mp.currentPrice);
   }
 
   /** Обновить demand */
   updateDemand(resourceId: string, delta: number): void {
-    const mp = this.prices.get(resourceId);
+    const canonicalId = resolveResourceId(resourceId);
+    const mp = this.prices.get(canonicalId);
     if (!mp) return;
 
     const oldPrice = mp.currentPrice;
@@ -117,12 +122,12 @@ export class EconomyManager {
     mp.change24h = ((mp.currentPrice - oldPrice) / oldPrice) * 100;
     mp.lastUpdated = Date.now();
 
-    this.notifyListeners(resourceId, mp.currentPrice);
+    this.notifyListeners(canonicalId, mp.currentPrice);
   }
 
   /** Банк сжигает ресурсы (supply резко падает → цена взлетает) */
   bankBurn(resourceId: string, burnPercent: number): void {
-    const mp = this.prices.get(resourceId);
+    const mp = this.prices.get(resolveResourceId(resourceId));
     if (!mp) return;
 
     const burned = Math.floor(mp.supply * burnPercent);
@@ -131,13 +136,14 @@ export class EconomyManager {
 
   /** Подписка на изменение цены */
   subscribeToPrice(resourceId: string, callback: (price: number) => void): () => void {
-    if (!this.listeners.has(resourceId)) {
-      this.listeners.set(resourceId, new Set());
+    const canonicalId = resolveResourceId(resourceId);
+    if (!this.listeners.has(canonicalId)) {
+      this.listeners.set(canonicalId, new Set());
     }
-    this.listeners.get(resourceId)!.add(callback);
+    this.listeners.get(canonicalId)!.add(callback);
 
     return () => {
-      this.listeners.get(resourceId)?.delete(callback);
+      this.listeners.get(canonicalId)?.delete(callback);
     };
   }
 

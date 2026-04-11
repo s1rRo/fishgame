@@ -4,13 +4,13 @@
     {
       "name": "River Lord Dev Server",
       "runtimeExecutable": "/Users/sirro/.nvm/versions/node/v22.18.0/bin/node",
-      "runtimeArgs": ["/Users/sirro/fishgame/node_modules/.bin/vite", "--port", "5199"],
+      "runtimeArgs": ["/Users/sirro/fishgame/game/node_modules/.bin/vite", "/Users/sirro/fishgame/game", "--port", "5199"],
       "port": 5199
     },
     {
       "name": "River Lord Preview (Production)",
       "runtimeExecutable": "/Users/sirro/.nvm/versions/node/v22.18.0/bin/node",
-      "runtimeArgs": ["/Users/sirro/fishgame/node_modules/.bin/vite", "preview"],
+      "runtimeArgs": ["/Users/sirro/fishgame/game/node_modules/.bin/vite", "preview", "/Users/sirro/fishgame/game"],
       "port": 4173
     }
   ]

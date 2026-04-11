@@ -349,11 +349,14 @@ export class LoginScene extends BaseScene {
     const profile = await this.dbService.getPlayerProfile(user.uid);
     if (!profile) {
       await this.dbService.createInitialProfile(user.uid, user.displayName || `Fisher_${user.uid.slice(0,4)}`, user.email);
+      this.analytics.logEvent('login', { method: user.isAnonymous ? 'guest' : 'google' });
+      this.sceneManager.startScene('OnboardingFlow');
+      return;
     } else {
       await this.dbService.updateLastLogin(user.uid);
     }
     this.analytics.logEvent('login', { method: user.isAnonymous ? 'guest' : 'google' });
-    this.sceneManager.startScene('PlanetScene');
+    this.sceneManager.startScene(profile.tutorialCompleted ? 'PlanetScene' : 'OnboardingFlow');
   }
 
   // ── UPDATE ────────────────────────────────────────────────────

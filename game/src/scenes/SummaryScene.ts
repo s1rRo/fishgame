@@ -10,8 +10,20 @@ import { RiverLordManager } from '../services/RiverLordManager';
 import { LevelBalanceManager } from '../services/LevelBalanceManager';
 import { Analytics } from '../services/analytics';
 import { TopHUD } from '../ui/TopHUD';
-import { RARITY_COLORS, RARITY_NAMES } from '../data/fishDatabase';
+import { RARITY_COLORS, RARITY_NAMES, argentineFishDatabase } from '../data/fishDatabase';
 import { matLP, LP } from '../utils/LowPolyStyle';
+import type { PlayerProfile } from '../models/Player';
+
+interface SummarySceneData {
+  caught: { id: string; name: string; weight: number; value: number; processed: boolean; timestamp: number; rarity?: string; maxWeight?: number }[];
+  isCrash: boolean;
+  levelId: string | number;
+  biomeId?: string;
+  checkpointIndex?: number;
+  attempts: number;
+  totalValue: number;
+  playTime: number;
+}
 
 export class SummaryScene extends BaseScene {
   private authService  = AuthService.getInstance();
@@ -26,14 +38,9 @@ export class SummaryScene extends BaseScene {
   // River Lord 3D celebration
   private riverLordMeshes: THREE.Object3D[] = [];
 
-  async start(data: {
-    caught:     { id: string; name: string; weight: number; value: number; processed: boolean; timestamp: number; rarity?: string; maxWeight?: number }[];
-    isCrash:    boolean;
-    levelId:    string;
-    attempts:   number;
-    totalValue: number;
-    playTime:   number;
-  }) {
+  async start(data: SummarySceneData) {
+    data.biomeId = data.biomeId ?? 'rio_salado';
+    data.checkpointIndex = data.checkpointIndex ?? 0;
     this.scene.background = new THREE.Color(0x0d1b2a);
     this.camera.position.set(0, 0, 10);
     this.setupParticles();
@@ -51,10 +58,10 @@ export class SummaryScene extends BaseScene {
     if (uid && profile && data.caught.length > 0) {
       // Проверяем River Lord рекорд
       riverLordResult = await this.riverLord.checkAndUpdate(
-        uid, profile.displayName, data.levelId, data.attempts, data.totalValue
+        uid, profile.displayName, String(data.levelId), data.attempts, data.totalValue
       );
       // Проверяем выполнение уровня
-      levelResult = await this.levelManager.checkLevelCompletion(uid, parseInt(data.levelId), data.totalValue);
+      levelResult = await this.levelManager.checkLevelCompletion(uid, parseInt(String(data.levelId)), data.totalValue);
     }
 
     // River Lord 3D celebration — запускаем если новый рекорд
@@ -65,7 +72,7 @@ export class SummaryScene extends BaseScene {
     // Расчёт звёзд (тз/11_GAME_CONFIGS.md раздел 12)
     const stars = this.calcStars(data);
 
-    this.renderUI(data, riverLordResult, levelResult, stars);
+    this.renderUI(data, profile, riverLordResult, levelResult, stars);
   }
 
   // ── РАСЧЁТ ЗВЁЗД ПО ТЗ ──────────────────────────────────────
@@ -191,7 +198,8 @@ export class SummaryScene extends BaseScene {
   }
 
   private renderUI(
-    data: { caught: any[]; isCrash: boolean; levelId: string; attempts: number; totalValue: number },
+    data: SummarySceneData,
+    profile: PlayerProfile | null,
     riverLordResult: { isNewRecord: boolean; rewardGems: number },
     levelResult: { completed: boolean; reward: number; nextLevelUnlocked: boolean },
     stars: number = 0
@@ -230,8 +238,13 @@ export class SummaryScene extends BaseScene {
       padding:18px 32px; min-width:min(360px,85vw);
     `;
     const catchList = data.caught.map(f => {
-      const col = RARITY_COLORS[f.rarity] || '#fff';
-      return `<div style="color:${col}">${f.name} — ${f.weight.toFixed(2)} кг → $${f.value}</div>`;
+      const col = f.rarity ? RARITY_COLORS[f.rarity] ?? '#fff' : '#fff';
+      const fishDef = argentineFishDatabase.find(fd => fd.id === f.id);
+      const icon = fishDef?.iconPath ?? '/assets/images/fish/fish_01.png';
+      return `<div style="display:flex;align-items:center;gap:8px;color:${col};margin:3px 0;">
+        <img src="${icon}" style="width:32px;height:32px;image-rendering:pixelated;border-radius:4px;background:rgba(0,0,0,0.3);" onerror="this.style.display='none'">
+        <span>${f.name} — ${f.weight.toFixed(2)} кг → $${f.value}</span>
+      </div>`;
     }).join('');
 
     statsEl.innerHTML = `
@@ -309,8 +322,22 @@ export class SummaryScene extends BaseScene {
     if (data.caught.length > 0) {
       mkBtn('🐟 НА РЫНОК', '#8e44ad', () => this.sceneManager.startScene('MarketScene'));
     }
-    mkBtn('🎣 ЕЩЁ РАЗ', '#27ae60', () => this.sceneManager.startScene('FishingSessionScene', { levelId: data.levelId }));
-    mkBtn('🗺 КАРТА', '#2980b9',     () => this.sceneManager.startScene('PlanetScene'));
+    mkBtn('🎣 ЕЩЁ РАЗ', '#27ae60', () => this.sceneManager.startScene('FishingSessionScene', {
+      levelId: data.levelId,
+      biomeId: data.biomeId ?? 'rio_salado',
+      checkpointIndex: data.checkpointIndex ?? 0,
+    }));
+    mkBtn('🗺 КАРТА', '#2980b9', () => this.goToMap(profile, data));
+  }
+
+  private goToMap(profile: PlayerProfile | null, data: SummarySceneData): void {
+    if (profile?.villagePosition) {
+      this.sceneManager.startScene('BiomeView', {
+        biomeId: data.biomeId ?? profile.currentBiomeId ?? 'rio_salado',
+      });
+      return;
+    }
+    this.sceneManager.startScene('PlanetScene');
   }
 
   update(delta: number) {

@@ -8,6 +8,7 @@ import * as THREE from 'three';
 import { BaseScene } from '../core/BaseScene';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { matLP, createTree } from '../utils/LowPolyStyle';
+import { applyTexture, texMat } from '../utils/TextureCache';
 import { AudioManager } from '../services/AudioManager';
 import { BiomeManager } from '../services/BiomeManager';
 import { AuthService } from '../services/AuthService';
@@ -158,18 +159,11 @@ export class BiomeView extends BaseScene {
     }
     geo.computeVertexNormals();
 
-    const mat = matLP(colors.ground);
+    // Текстура зависит от уровня биома: L1=трава, L2=трава+тёмная, L3=камни
+    const terrainTexName = this.biomeLevel === 3 ? 'rocks_gray' : 'grass';
+    const mat = texMat(terrainTexName, { color: colors.ground, repeatX: 8, repeatY: 8 });
     const terrainMesh = new THREE.Mesh(geo, mat);
     this.scene.add(terrainMesh);
-
-    const texLoader = new THREE.TextureLoader();
-    texLoader.load('/assets/images/textures/biome_topdown.png', (tex) => {
-      tex.magFilter = THREE.NearestFilter;
-      tex.wrapS = THREE.RepeatWrapping;
-      tex.wrapT = THREE.RepeatWrapping;
-      (terrainMesh.material as THREE.MeshStandardMaterial).map = tex;
-      (terrainMesh.material as THREE.MeshStandardMaterial).needsUpdate = true;
-    });
   }
 
   private createWater(waterColor: number): void {
@@ -181,13 +175,14 @@ export class BiomeView extends BaseScene {
       wPos.setY(i, (Math.random() - 0.5) * 0.15);
     }
     waterGeo.computeVertexNormals();
-    const waterMat = new THREE.MeshStandardMaterial({
+    const waterMat = texMat('water', {
       color: waterColor,
       transparent: true,
       opacity: 0.75,
-      flatShading: true,
       roughness: 0.3,
       metalness: 0.1,
+      repeatX: 6,
+      repeatY: 2,
     });
     const water = new THREE.Mesh(waterGeo, waterMat);
     water.position.set(0, -0.15, -6);
@@ -224,7 +219,7 @@ export class BiomeView extends BaseScene {
       for (let i = 0; i < 6; i++) {
         const rock = new THREE.Mesh(
           new THREE.DodecahedronGeometry(0.5 + Math.random() * 0.8, 0),
-          matLP(0x808080),
+          texMat('rock_color', { color: 0x808080 }),
         );
         rock.position.set((Math.random() - 0.5) * 18, 0.3, (Math.random() - 0.5) * 10 + 3);
         this.scene.add(rock);
@@ -236,7 +231,7 @@ export class BiomeView extends BaseScene {
     this.villageMarker = new THREE.Group();
 
     // Основной дом
-    const house = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 1.5), matLP(0x8B4513));
+    const house = new THREE.Mesh(new THREE.BoxGeometry(1.5, 1.2, 1.5), texMat('wood', { color: 0x8B4513, repeatX: 2, repeatY: 2 }));
     house.position.y = 0.6;
     this.villageMarker.add(house);
 

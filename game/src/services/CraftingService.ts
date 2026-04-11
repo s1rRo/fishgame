@@ -5,6 +5,7 @@
 
 import { CRAFTING_RECIPES, CraftingRecipe } from '../data/craftingRecipes';
 import type { PlayerProfile, CraftJob } from '../models/Player';
+import { addResourceAmount, getResourceAmount, resolveBuildingId, spendResourceAmount } from '../utils/IdAliases';
 
 export type CraftStatus = 'in_progress' | 'success' | 'failure' | 'not_found';
 
@@ -29,7 +30,8 @@ export class CraftingService {
   getAvailableRecipes(player: PlayerProfile): CraftingRecipe[] {
     return CRAFTING_RECIPES.filter(r => {
       // Проверка уровня здания
-      const building = (player.farmBuildings as any)[r.requiredBuilding];
+      const building = (player.farmBuildings as any)[resolveBuildingId(r.requiredBuilding)]
+        ?? (player.farmBuildings as any)[r.requiredBuilding];
       if (!building || building.level < r.requiredBuildingLevel) return false;
       return true;
     });
@@ -41,7 +43,7 @@ export class CraftingService {
     if (!recipe) return false;
 
     return recipe.inputs.every(input => {
-      const have = player.resources[input.resourceId] ?? 0;
+      const have = getResourceAmount(player.resources, input.resourceId);
       return have >= input.amount;
     });
   }
@@ -51,20 +53,21 @@ export class CraftingService {
     const recipe = CRAFTING_RECIPES.find(r => r.id === recipeId);
     if (!recipe) return null;
     if (!this.canAfford(player, recipeId)) return null;
+    const configBuildingId = resolveBuildingId(buildingId);
 
     // Проверить что нет активного крафта на этом здании
-    const existing = player.activeCraftJobs.find(j => j.buildingId === buildingId);
+    const existing = player.activeCraftJobs.find(j => resolveBuildingId(j.buildingId) === configBuildingId);
     if (existing) return null;
 
     // Списать ресурсы
     for (const input of recipe.inputs) {
-      player.resources[input.resourceId] = (player.resources[input.resourceId] ?? 0) - input.amount;
+      spendResourceAmount(player.resources, input.resourceId, input.amount);
     }
 
     // Создать джоб
     const job: CraftJob = {
       recipeId,
-      buildingId,
+      buildingId: configBuildingId,
       startedAt: Date.now(),
       durationMs: recipe.timeMinutes * 60 * 1000,
     };
@@ -75,7 +78,8 @@ export class CraftingService {
 
   /** Проверить статус крафта */
   checkStatus(player: PlayerProfile, buildingId: string): CraftStatus {
-    const job = player.activeCraftJobs.find(j => j.buildingId === buildingId);
+    const configBuildingId = resolveBuildingId(buildingId);
+    const job = player.activeCraftJobs.find(j => resolveBuildingId(j.buildingId) === configBuildingId);
     if (!job) return 'not_found';
 
     const elapsed = Date.now() - job.startedAt;
@@ -93,7 +97,8 @@ export class CraftingService {
 
   /** Получить прогресс (0-1) */
   getProgress(player: PlayerProfile, buildingId: string): number {
-    const job = player.activeCraftJobs.find(j => j.buildingId === buildingId);
+    const configBuildingId = resolveBuildingId(buildingId);
+    const job = player.activeCraftJobs.find(j => resolveBuildingId(j.buildingId) === configBuildingId);
     if (!job) return 0;
     const elapsed = Date.now() - job.startedAt;
     return Math.min(1, elapsed / job.durationMs);
@@ -101,7 +106,8 @@ export class CraftingService {
 
   /** Получить оставшееся время в секундах */
   getRemainingSeconds(player: PlayerProfile, buildingId: string): number {
-    const job = player.activeCraftJobs.find(j => j.buildingId === buildingId);
+    const configBuildingId = resolveBuildingId(buildingId);
+    const job = player.activeCraftJobs.find(j => resolveBuildingId(j.buildingId) === configBuildingId);
     if (!job) return 0;
     const remaining = job.durationMs - (Date.now() - job.startedAt);
     return Math.max(0, Math.ceil(remaining / 1000));
@@ -109,7 +115,8 @@ export class CraftingService {
 
   /** Завершить крафт (забрать результат) */
   completeCraft(player: PlayerProfile, buildingId: string): CraftResult | null {
-    const jobIndex = player.activeCraftJobs.findIndex(j => j.buildingId === buildingId);
+    const configBuildingId = resolveBuildingId(buildingId);
+    const jobIndex = player.activeCraftJobs.findIndex(j => resolveBuildingId(j.buildingId) === configBuildingId);
     if (jobIndex === -1) return null;
 
     const job = player.activeCraftJobs[jobIndex];
@@ -129,14 +136,14 @@ export class CraftingService {
         amount: Math.max(1, Math.floor(input.amount * 0.3)),
       }));
       for (const ret of returned) {
-        player.resources[ret.resourceId] = (player.resources[ret.resourceId] ?? 0) + ret.amount;
+        addResourceAmount(player.resources, ret.resourceId, ret.amount);
       }
       return { status: 'failure', recipe, inputsReturned: returned };
     }
 
     // Успех — выдать output
     for (const output of recipe.outputs) {
-      player.resources[output.resourceId] = (player.resources[output.resourceId] ?? 0) + output.amount;
+      addResourceAmount(player.resources, output.resourceId, output.amount);
     }
 
     // Добавить рецепт в разблокированные если ещё нет

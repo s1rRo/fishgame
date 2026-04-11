@@ -6,7 +6,6 @@
 import { BaseScene } from '../core/BaseScene';
 import { AuthService } from '../services/AuthService';
 import { DatabaseService } from '../services/DatabaseService';
-import { AudioManager } from '../services/AudioManager';
 import type { PlayerProfile } from '../models/Player';
 import { argentineFishDatabase } from '../data/fishDatabase';
 import { NPC_DATABASE } from '../data/npcDatabase';
@@ -27,6 +26,8 @@ const ROD_SKINS = [
   { id: 'rod_golden', name: 'Золотая', color: '#f39c12', unlock: 'Season Pass 25' },
   { id: 'rod_crystal', name: 'Кристальная', color: '#3498db', unlock: 'Достижение' },
 ];
+
+const avatarImagePath = (index: number): string => `/assets/images/avatars/avatar_${index + 1}.png`;
 
 const ACHIEVEMENTS = [
   { id: 'first_fish', name: 'Первая рыба', desc: 'Поймай свою первую рыбу', icon: '🐟' },
@@ -186,10 +187,11 @@ export class PlayerProfileScreen extends BaseScene {
     const avatar = AVATARS.find(a => a.id === (p.avatarId ?? 'avatar_default_m'));
     const rod = ROD_SKINS.find(r => r.id === (p.rodSkinId ?? 'rod_basic'));
     const fishCount = Object.keys(p.fishAtlas ?? {}).filter(k => p.fishAtlas?.[k]?.caught).length;
+    const avatarIndex = Math.max(0, AVATARS.indexOf(avatar!));
 
     return `
       <div style="text-align:center;margin-bottom:16px;">
-        <img src="/assets/images/avatars/avatar_${Math.max(1, AVATARS.indexOf(avatar!) + 1)}.png" style="width:80px;height:80px;border-radius:50%;object-fit:cover;margin:0 auto 8px;border:3px solid #f39c12;background:#111;display:block;image-rendering:pixelated;" onerror="this.style.background='${avatar?.color ?? '#888'}';this.src=''" />
+        <img src="${avatarImagePath(avatarIndex)}" alt="${avatar?.name ?? 'avatar'}" style="width:80px;height:80px;border-radius:50%;margin:0 auto 8px;border:3px solid #f39c12;background:${avatar?.color ?? '#111'};image-rendering:pixelated;object-fit:cover;display:block;" onerror="this.style.display='none'">
         <p style="font-size:20px;font-weight:bold;">${p.displayName}</p>
         <p style="color:#95a5a6;font-size:13px;">${avatar?.name ?? 'Рыбак'} | ${rod?.name ?? 'Бамбуковая'}</p>
       </div>
@@ -217,8 +219,8 @@ export class PlayerProfileScreen extends BaseScene {
             <div class="avatar-pick" data-id="${a.id}" style="
               width:48px;height:48px;border-radius:50%;overflow:hidden;
               border:3px solid ${(p.avatarId ?? 'avatar_default_m') === a.id ? '#f39c12' : '#2c3e50'};
-              cursor:pointer;background:#111;" title="${a.name}">
-              <img src="/assets/images/avatars/avatar_${i + 1}.png" style="width:100%;height:100%;object-fit:cover;image-rendering:pixelated;" onerror="this.parentElement.style.background='${a.color}';this.remove()" />
+              cursor:pointer;background:${a.color};image-rendering:pixelated;" title="${a.name}">
+              <img src="${avatarImagePath(i)}" alt="${a.name}" style="width:100%;height:100%;object-fit:cover;image-rendering:pixelated;display:block;" onerror="this.style.display='none'">
             </div>
           `).join('')}
         </div>
@@ -259,7 +261,10 @@ export class PlayerProfileScreen extends BaseScene {
           border-radius:6px;padding:8px;text-align:center;min-width:80px;
           opacity:${isCaught ? '1' : '0.5'};
         ">
-          <div style="font-size:18px;">${isCaught ? '🐟' : '❓'}</div>
+          ${isCaught
+            ? `<img src="${f.iconPath}" style="width:40px;height:40px;image-rendering:pixelated;border-radius:4px;margin:0 auto;display:block;background:rgba(0,0,0,0.3);" onerror="this.outerHTML='<div style=\\'font-size:18px\\'>🐟</div>'">`
+            : `<div style="font-size:18px;">❓</div>`
+          }
           <div style="font-size:10px;color:${rarityColors[f.rarity] ?? '#aaa'};margin-top:2px;">
             ${isCaught ? f.name : '???'}
           </div>
@@ -306,8 +311,9 @@ export class PlayerProfileScreen extends BaseScene {
           background:rgba(0,0,0,0.3);border:1px solid ${owned ? (rarityColors[npc.rarity] ?? '#555') : '#333'};
           border-radius:6px;padding:10px;opacity:${owned ? '1' : '0.5'};
         ">
-          <div style="display:flex;justify-content:space-between;align-items:center;">
-            <span style="font-size:14px;font-weight:bold;">${npc.name}</span>
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+            <img src="${npc.iconPath}" style="width:36px;height:36px;image-rendering:pixelated;border-radius:50%;background:rgba(0,0,0,0.3);flex-shrink:0;" onerror="this.style.display='none'">
+            <span style="font-size:14px;font-weight:bold;flex:1;">${npc.name}</span>
             <span style="font-size:10px;color:${rarityColors[npc.rarity] ?? '#aaa'};">${npc.rarity}</span>
           </div>
           ${owned ? `
@@ -345,7 +351,10 @@ export class PlayerProfileScreen extends BaseScene {
           background:rgba(0,0,0,0.3);border:1px solid ${owned ? (rarityColors[pet.rarity] ?? '#555') : '#333'};
           border-radius:6px;padding:10px;text-align:center;opacity:${owned ? '1' : '0.5'};
         ">
-          <div style="font-size:22px;">${pet.icon ?? '🐾'}</div>
+          ${owned
+            ? `<img src="${pet.iconPath}" style="width:48px;height:48px;image-rendering:pixelated;border-radius:6px;margin:0 auto;display:block;background:rgba(0,0,0,0.3);" onerror="this.outerHTML='<div style=\\'font-size:22px\\'>${pet.emoji ?? '🐾'}</div>'">`
+            : `<div style="font-size:22px;">🐾</div>`
+          }
           <div style="font-size:12px;margin-top:4px;">${owned ? pet.name : '???'}</div>
           <div style="font-size:10px;color:${rarityColors[pet.rarity] ?? '#aaa'};">${pet.rarity}</div>
           ${owned && equippedTo ? `<div style="font-size:9px;color:#27ae60;margin-top:2px;">→ ${equippedTo[0]}</div>` : ''}
@@ -444,11 +453,12 @@ export class PlayerProfileScreen extends BaseScene {
     this.overlay.querySelectorAll('.avatar-pick').forEach(el => {
       el.addEventListener('click', async () => {
         const id = (el as HTMLElement).dataset.id;
-        if (!id) return;
-        await DatabaseService.getInstance().updatePlayerStats(this.userId, { avatarId: id });
-        AudioManager.getInstance().playSFX('button_click');
-        p.avatarId = id;
-        this.render();
+        if (!id || !this.player) return;
+        if (!this.isCosmeticAvailable(p, id)) {
+          window.alert('Этот аватар пока не открыт.');
+          return;
+        }
+        await this.saveProfileCosmetic({ avatarId: id });
       });
     });
 
@@ -456,16 +466,42 @@ export class PlayerProfileScreen extends BaseScene {
     this.overlay.querySelectorAll('.rod-pick').forEach(el => {
       el.addEventListener('click', async () => {
         const id = (el as HTMLElement).dataset.id;
-        if (!id) return;
-        await DatabaseService.getInstance().updatePlayerStats(this.userId, { rodSkinId: id });
-        AudioManager.getInstance().playSFX('button_click');
-        p.rodSkinId = id;
-        this.render();
+        if (!id || !this.player) return;
+        if (!this.isCosmeticAvailable(p, id)) {
+          window.alert('Этот скин удочки пока не открыт.');
+          return;
+        }
+        await this.saveProfileCosmetic({ rodSkinId: id });
       });
     });
   }
 
+  private isCosmeticAvailable(p: PlayerProfile, id: string): boolean {
+    const avatar = AVATARS.find(a => a.id === id);
+    const rod = ROD_SKINS.find(r => r.id === id);
+    const isFree = avatar?.unlock === 'free' || rod?.unlock === 'free';
+    return isFree || (p.ownedCosmetics ?? []).includes(id);
+  }
+
+  private async saveProfileCosmetic(update: Pick<PlayerProfile, 'avatarId'> | Pick<PlayerProfile, 'rodSkinId'>): Promise<void> {
+    if (!this.player || !this.userId) return;
+
+    try {
+      await DatabaseService.getInstance().updatePlayerStats(this.userId, update);
+      this.player = { ...this.player, ...update };
+      this.render();
+    } catch (err) {
+      console.error('[Profile] Failed to save cosmetic:', err);
+      window.alert('Не удалось сохранить выбор. Попробуй ещё раз.');
+    }
+  }
+
   private goBack(): void {
-    this.sceneManager.startScene('FarmScene');
+    const biomeId = this.player?.currentBiomeId ?? 'rio_salado';
+    if (this.player?.villagePosition) {
+      this.sceneManager.startScene('BiomeView', { biomeId });
+      return;
+    }
+    this.sceneManager.startScene('PlanetScene');
   }
 }

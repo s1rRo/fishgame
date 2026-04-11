@@ -37,7 +37,6 @@ export function showNPCSelectUI(
 
     const overlay = document.createElement('div');
     overlay.style.cssText = getOverlayStyle();
-
     const removeEsc = addEscHandler(() => close({ npcId: null, npcDef: null }));
 
     const owned = ownedNPCIds
@@ -63,9 +62,10 @@ export function showNPCSelectUI(
           transition:transform 0.2s,box-shadow 0.2s;pointer-events:auto;
         ">
           ${bestBadge}
-          <div style="width:64px;height:64px;margin:0 auto 8px;
-            background:#${npc.avatarMeshColor.toString(16).padStart(6,'0')};
-            border-radius:50%;border:2px solid ${color};"></div>
+          <img src="${npc.iconPath}" style="width:64px;height:64px;margin:0 auto 8px;
+            image-rendering:pixelated;border-radius:50%;border:2px solid ${color};
+            background:#${npc.avatarMeshColor.toString(16).padStart(6,'0')};object-fit:cover;"
+            onerror="this.style.background='#'+('${npc.avatarMeshColor.toString(16).padStart(6,'0')}');this.src=''">
           <div style="font-weight:bold;font-size:16px;color:white;">${npc.name}</div>
           <div style="color:${color};font-size:12px;text-transform:uppercase;">${npc.rarity}</div>
           <div style="color:#2ecc71;font-size:14px;margin-top:6px;font-weight:bold;">
@@ -83,14 +83,14 @@ export function showNPCSelectUI(
       <div style="display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-bottom:16px;">
         ${cardsHTML || '<p style="color:#95a5a6;">У вас нет NPC. Наймите в NPCListScreen.</p>'}
       </div>
-      <div style="text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;"></div>
+      <div class="npc-btn-row" style="text-align:center;display:flex;gap:12px;justify-content:center;flex-wrap:wrap;"></div>
     `;
+
+    // Кнопки внизу (получаем ДО добавления closeButton, иначе div:last-child сломается)
+    const btnRow = card.querySelector('.npc-btn-row')!;
 
     // Кнопка закрыть (крестик)
     card.appendChild(createCloseButton(() => close({ npcId: null, npcDef: null })));
-
-    // Кнопки внизу
-    const btnRow = card.querySelector('div:last-child')!;
     if (owned.length > 0) {
       const autoBtn = document.createElement('button');
       autoBtn.textContent = '⚡ Авто-выбор';

@@ -38,10 +38,11 @@ export function showBaitSelectUI(playerCoins: number): Promise<BaitSelectResult>
           min-width:110px;text-align:center;opacity:${opacity};
           transition:transform 0.2s,box-shadow 0.2s;pointer-events:auto;
         ">
-          <div style="width:48px;height:48px;margin:0 auto 6px;
-            background:#${bait.color3D.toString(16).padStart(6,'0')};
-            border-radius:8px;display:flex;align-items:center;justify-content:center;
-            font-size:24px;">🪝</div>
+          <img src="${bait.icon}" style="width:48px;height:48px;margin:0 auto 6px;
+            image-rendering:pixelated;border-radius:8px;
+            background:#${bait.color3D.toString(16).padStart(6,'0')};"
+            onerror="this.outerHTML='<div style=\\'width:48px;height:48px;margin:0 auto 6px;background:#${bait.color3D.toString(16).padStart(6,'0')};border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:24px;\\'>🪝</div>'"
+          >
           <div style="font-weight:bold;font-size:15px;color:white;">${bait.name}</div>
           <div style="color:#f39c12;font-size:13px;margin-top:4px;">
             ${bait.price === 0 ? 'Бесплатно' : `${bait.price} 💰`}

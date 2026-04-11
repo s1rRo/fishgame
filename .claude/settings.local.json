@@ -64,7 +64,11 @@
       "Bash(git commit:*)",
       "Bash(ls -d /Users/sirro/fishgame/*/)",
       "Bash(git config:*)",
-      "Bash(git push:*)"
+      "Bash(git push:*)",
+      "Bash(gh api:*)",
+      "Bash(grep -n \"innerHTML\\\\|\\\\.html\" /Users/sirro/fishgame/game/src/scenes/*.ts)",
+      "Bash(grep -n \"fishDatabase\\\\|BAITS\\\\|NPC_DATABASE\\\\|PET_DATABASE\" /Users/sirro/fishgame/game/src/scenes/*.ts)",
+      "Bash(grep -rn \"\\\\.innerHTML\\\\s*=\" /Users/sirro/fishgame/game/src/scenes/*.ts)"
     ]
   }
 }

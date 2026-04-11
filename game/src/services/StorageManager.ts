@@ -5,6 +5,7 @@
 // ============================================================
 
 import type { PlayerProfile, StorageSlot } from '../models/Player';
+import { resolveResourceId } from '../utils/IdAliases';
 
 export type StorageType = 'food' | 'fish' | 'stone' | 'wood' | 'tool';
 
@@ -18,10 +19,11 @@ const RESOURCE_STORAGE_MAP: Record<string, StorageType> = {
   carp: 'fish', trout: 'fish', salmon_king: 'fish', perch: 'fish',
   carp_smoked: 'food', trout_smoked: 'food', salmon_smoked: 'food',
   oak_wood: 'wood', beech_wood: 'wood',
+  wood_oak: 'wood', wood_beech: 'wood',
   stone: 'stone',
-  iron_ore: 'stone',
+  iron_ore: 'stone', ore_iron: 'stone',
   herb_patagonia: 'food',
-  worm: 'tool', moth: 'tool', lure: 'tool', fly: 'tool', bread: 'tool',
+  worm: 'tool', moth: 'tool', lure: 'tool', fly: 'tool', fly_lure: 'tool', bread: 'tool',
   fish_hook: 'tool',
 };
 
@@ -53,12 +55,14 @@ export class StorageManager {
 
   /** Определить тип склада для ресурса */
   getStorageType(resourceId: string): StorageType {
-    return RESOURCE_STORAGE_MAP[resourceId] ?? 'tool';
+    const canonicalId = resolveResourceId(resourceId);
+    return RESOURCE_STORAGE_MAP[canonicalId] ?? RESOURCE_STORAGE_MAP[resourceId] ?? 'tool';
   }
 
   /** Получить текущую вместимость склада */
   getCapacity(player: PlayerProfile, storageType: StorageType): { used: number; max: number } {
-    const storageLevel = player.farmBuildings.storage?.level ?? 0;
+    const canonicalStorageLevel = (player.farmBuildings as any).storage_food?.level ?? 0;
+    const storageLevel = Math.max(player.farmBuildings.storage?.level ?? 0, canonicalStorageLevel);
     const max = BASE_CAPACITY[storageType]?.[storageLevel] ?? 200;
 
     const slots = player.storageSlots[storageType] ?? [];
@@ -69,7 +73,8 @@ export class StorageManager {
 
   /** Добавить ресурс на склад */
   addToStorage(player: PlayerProfile, resourceId: string, qty: number): boolean {
-    const type = this.getStorageType(resourceId);
+    const canonicalId = resolveResourceId(resourceId);
+    const type = this.getStorageType(canonicalId);
     const { used, max } = this.getCapacity(player, type);
 
     if (used + qty > max) return false;
@@ -78,13 +83,13 @@ export class StorageManager {
       player.storageSlots[type] = [];
     }
 
-    const existing = player.storageSlots[type].find(s => s.resourceId === resourceId);
+    const existing = player.storageSlots[type].find(s => resolveResourceId(s.resourceId) === canonicalId);
     if (existing) {
       existing.qty += qty;
     } else {
-      const slot: StorageSlot = { resourceId, qty };
+      const slot: StorageSlot = { resourceId: canonicalId, qty };
       // Если портящийся — установить таймер
-      if (SPOILAGE_RATES[resourceId]) {
+      if (SPOILAGE_RATES[canonicalId]) {
         slot.spoilTimestamp = Date.now();
       }
       player.storageSlots[type].push(slot);
@@ -95,11 +100,12 @@ export class StorageManager {
 
   /** Убрать ресурс со склада */
   removeFromStorage(player: PlayerProfile, resourceId: string, qty: number): boolean {
-    const type = this.getStorageType(resourceId);
+    const canonicalId = resolveResourceId(resourceId);
+    const type = this.getStorageType(canonicalId);
     const slots = player.storageSlots[type];
     if (!slots) return false;
 
-    const existing = slots.find(s => s.resourceId === resourceId);
+    const existing = slots.find(s => resolveResourceId(s.resourceId) === canonicalId);
     if (!existing || existing.qty < qty) return false;
 
     existing.qty -= qty;
@@ -124,7 +130,7 @@ export class StorageManager {
       if (!slots) continue;
 
       for (const slot of slots) {
-        const rate = SPOILAGE_RATES[slot.resourceId];
+        const rate = SPOILAGE_RATES[resolveResourceId(slot.resourceId)];
         if (!rate || rate <= 0) continue;
 
         const effectiveRate = rate * spoilageReduction;

@@ -23,7 +23,7 @@ export const BAITS: BaitConfig[] = [
   {
     id: 'worm',
     name: 'Червь',
-    icon: '/assets/images/baits/bait_worm.png',
+    icon: '/assets/images/baits/bait_01.png',
     price: 5,
     currency: 'soft',
     shopStock: Infinity,
@@ -38,7 +38,7 @@ export const BAITS: BaitConfig[] = [
   {
     id: 'moth',
     name: 'Мотыль',
-    icon: '/assets/images/baits/bait_moth.png',
+    icon: '/assets/images/baits/bait_02.png',
     price: 35,
     currency: 'soft',
     shopStock: 50,
@@ -53,7 +53,7 @@ export const BAITS: BaitConfig[] = [
   {
     id: 'lure',
     name: 'Блесна',
-    icon: '/assets/images/baits/bait_lure.png',
+    icon: '/assets/images/baits/bait_03.png',
     price: 25,
     currency: 'soft',
     shopStock: 30,
@@ -68,7 +68,7 @@ export const BAITS: BaitConfig[] = [
   {
     id: 'fly',
     name: 'Искусственная мушка',
-    icon: '/assets/images/baits/bait_fly.png',
+    icon: '/assets/images/baits/bait_04.png',
     price: 80,
     currency: 'soft',
     shopStock: 15,
@@ -83,7 +83,7 @@ export const BAITS: BaitConfig[] = [
   {
     id: 'bread',
     name: 'Хлеб/Тесто',
-    icon: '/assets/images/baits/bait_bread.png',
+    icon: '/assets/images/baits/bait_05.png',
     price: 8,
     currency: 'soft',
     shopStock: Infinity,

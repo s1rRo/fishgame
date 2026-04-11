@@ -10,9 +10,13 @@ import { DatabaseService } from '../services/DatabaseService';
 import { AdManager } from '../services/AdManager';
 import { SeasonPassManager } from '../services/SeasonPassManager';
 import { Analytics } from '../services/analytics';
-import { getRandomFishForLevel, levelBalance, FishSpecies, RARITY_COLORS } from '../data/fishDatabase';
+import { getRandomFishForBiome, RARITY_COLORS } from '../data/fishDatabase';
+import { getBiomeById } from '../data/biomeDatabase';
+import type { FishConfig } from '../models/Fish';
 import { TopHUD } from '../ui/TopHUD';
 import { matLP, LP, createFishMesh, createFisherman, setupGameLighting } from '../utils/LowPolyStyle';
+import { texMat } from '../utils/TextureCache';
+import { AudioManager } from '../services/AudioManager';
 import type { NPCDefinition } from '../data/npcDatabase';
 import type { BaitConfig } from '../data/baitDatabase';
 
@@ -21,7 +25,7 @@ type FishBehavior = 'bottom' | 'jumper' | 'aggressive' | 'ambush' | 'schooling' 
 
 interface ActiveFish {
   mesh: THREE.Group;
-  data: FishSpecies;
+  data: FishConfig;
   speed: number;
   depthY: number;
   behavior: FishBehavior;
@@ -45,6 +49,7 @@ export class FishingSessionScene extends BaseScene {
 
   // Состояние сессии
   private levelId   = '1';
+  private biomeId   = 'rio_salado';
   private attempts  = 0;
   private extraCasts = 3; // бонусные попытки после рекламы
   private sessionValue = 0;
@@ -62,7 +67,7 @@ export class FishingSessionScene extends BaseScene {
   private fishes: ActiveFish[] = [];
 
   // Таймер
-  private timeLeft    = 14;
+  private timeLeft    = 45;
   private timerHandle: ReturnType<typeof setInterval> | null = null;
   private sessionEnded = false;
 
@@ -87,12 +92,13 @@ export class FishingSessionScene extends BaseScene {
   private checkpointIndex = 0;
 
   start(data?: any) {
-    this.levelId       = String(data?.levelId ?? '1');
+    this.biomeId       = this.normalizeBiomeId(data?.biomeId ?? 'rio_salado');
+    this.levelId       = String(data?.levelId ?? this.getBiomeLevel(this.biomeId));
     this.sessionEnded  = false;
     this.caughtFishes  = [];
     this.sessionValue  = 0;
     this.attempts      = 0;
-    this.timeLeft      = 14;
+    this.timeLeft      = 45;
     this.sessionStartTime = Date.now();
     this.selectedNPC   = data?.npcDef ?? null;
     this.selectedBait  = data?.baitDef ?? null;
@@ -103,6 +109,7 @@ export class FishingSessionScene extends BaseScene {
     this.setup3D();
     this.setupUI();
     this.spawnFishes();
+    AudioManager.getInstance().playMusic('fishing');
     this.startTimer();
 
     window.addEventListener('pointerdown', this.onHoldStart);
@@ -118,8 +125,8 @@ export class FishingSessionScene extends BaseScene {
 
   // ── 3D СЦЕНА ────────────────────────────────────────────────
   private setup3D() {
-    const lvlData = levelBalance.find(l => l.id === parseInt(this.levelId));
-    this.scene.background = new THREE.Color(lvlData?.bgColor ?? 0x1abc9c);
+    const biome = getBiomeById(this.biomeId);
+    this.scene.background = new THREE.Color(biome?.skyColor ?? 0x87ceeb);
     this.camera.position.set(0, 2, 16);
     this.camera.lookAt(0, -2, 0);
 
@@ -131,13 +138,16 @@ export class FishingSessionScene extends BaseScene {
     });
 
     // Поверхность воды (flat-shading, low-poly)
-    const waterColor = lvlData?.waterColor ?? LP.water;
+    const waterColor = biome?.waterColor ?? LP.water;
     const waterGeo = new THREE.PlaneGeometry(32, 6, 12, 3);
     // Добавляем случайные смещения Y вершинам — low-poly рябь
     const wPos = waterGeo.attributes.position;
     for (let i = 0; i < wPos.count; i++) wPos.setY(i, (Math.random() - 0.5) * 0.07);
     waterGeo.computeVertexNormals();
-    this.waterPlane = new THREE.Mesh(waterGeo, matLP(waterColor, { transparent: true, opacity: 0.82 }));
+    this.waterPlane = new THREE.Mesh(waterGeo, texMat('water', {
+      color: waterColor, transparent: true, opacity: 0.82, roughness: 0.3, metalness: 0.1,
+      repeatX: 8, repeatY: 2,
+    }));
     this.waterPlane.rotation.x = -Math.PI / 2;
     this.waterPlane.position.set(0, 0, 0);
     this.scene.add(this.waterPlane);
@@ -152,11 +162,16 @@ export class FishingSessionScene extends BaseScene {
     }
 
     // Берег: пара low-poly плит земли
-    const bankMat = matLP(LP.earth);
-    const bank = new THREE.Mesh(new THREE.BoxGeometry(32, 1.5, 4, 8, 1, 2), bankMat);
+    const bank = new THREE.Mesh(
+      new THREE.BoxGeometry(32, 1.5, 4, 8, 1, 2),
+      texMat('dirt', { color: LP.earth, repeatX: 8, repeatY: 2 })
+    );
     bank.position.set(0, -0.75, 4);
     this.scene.add(bank);
-    const bankTop = new THREE.Mesh(new THREE.BoxGeometry(32, 0.5, 4, 8, 1, 2), matLP(LP.grass));
+    const bankTop = new THREE.Mesh(
+      new THREE.BoxGeometry(32, 0.5, 4, 8, 1, 2),
+      texMat('grass', { color: LP.grass, repeatX: 8, repeatY: 2 })
+    );
     bankTop.position.set(0, 0.05, 4);
     this.scene.add(bankTop);
 
@@ -208,7 +223,7 @@ export class FishingSessionScene extends BaseScene {
     const count = 6 + Math.min(lvl, 6);
 
     for (let i = 0; i < count; i++) {
-      const fishData = getRandomFishForLevel(lvl);
+      const fishData = getRandomFishForBiome(lvl);
       const behavior = FishingSessionScene.parseBehavior(fishData.uniqueTrait);
 
       const fishScale = 0.55 + Math.random() * 0.35;
@@ -255,7 +270,8 @@ export class FishingSessionScene extends BaseScene {
 
   // ── UI v2.0 ───────────────────────────────────────────────────
   private setupUI() {
-    this.hud.render(null, `УРОВЕНЬ ${this.levelId}`);
+    const biome = getBiomeById(this.biomeId);
+    this.hud.render(null, biome?.name ?? `БИОМ ${this.levelId}`);
 
     // ── Боковая панель статистики (левая) ─────────────────────
     const panel = document.createElement('div');
@@ -369,7 +385,7 @@ export class FishingSessionScene extends BaseScene {
       text-shadow:0 0 10px rgba(52,152,219,0.5);
       line-height:1.8;
     `;
-    locEl.innerHTML = `РЫБАЛКА<br><span style="font-size:8px;color:rgba(149,165,166,0.5)">УДАЧИ!</span>`;
+    locEl.innerHTML = `${biome?.nameEn?.toUpperCase() ?? 'РЫБАЛКА'}<br><span style="font-size:8px;color:rgba(149,165,166,0.5)">ЧЕКПОИНТ ${this.checkpointIndex + 1}</span>`;
     this.uiContainer.appendChild(locEl);
   }
 
@@ -431,12 +447,12 @@ export class FishingSessionScene extends BaseScene {
   private lastBaitBonusPercent = 0;
   private lastBaitMatched = false;
 
-  private calcCatchChance(fish: FishSpecies, npcFishBonus = 0): number {
+  private calcCatchChance(fish: FishConfig, npcFishBonus = 0): number {
     const base = FishingSessionScene.CATCH_CHANCE_BASE[fish.rarity] ?? 0.35;
     let baitMult = 1;
 
     if (this.selectedBait) {
-      const fishPrefers = fish.preferredBait;
+      const fishPrefers = this.normalizeBaitId(fish.preferredBait);
       if (fishPrefers === this.selectedBait.id) {
         // Совпадение приманки → бонус
         baitMult = 1 + this.selectedBait.catchBonusMatch / 100;
@@ -484,7 +500,7 @@ export class FishingSessionScene extends BaseScene {
         }
 
         const w = f.data.minWeight + Math.random() * (f.data.maxWeight - f.data.minWeight);
-        const v = Math.floor(w * f.data.baseValuePerKg);
+        const v = Math.floor(w * f.data.baseValue);
 
         this.caughtFishes.push({
           id: f.data.id, name: f.data.name,
@@ -496,15 +512,17 @@ export class FishingSessionScene extends BaseScene {
         if (this.valueEl) this.valueEl.innerHTML = this._statBadgeHTML('💰', `$${this.sessionValue}`, '#27ae60');
 
         // Эффект поимки с информацией о приманке
-        this.showCatchEffect(f.data.name, v, RARITY_COLORS[f.data.rarity], this.lastBaitBonusPercent, this.lastBaitMatched);
-        this.analytics.logEvent('fish_caught', { fishId: f.data.id, level: this.levelId, value: v });
+        this.showCatchEffect(f.data.name, v, RARITY_COLORS[f.data.rarity], this.lastBaitBonusPercent, this.lastBaitMatched, f.data.iconPath);
+        this.analytics.logEvent('fish_caught', { fishId: f.data.id, level: this.levelId, biomeId: this.biomeId, value: v });
 
         // Удаляем рыбу из сцены
         this.scene.remove(f.mesh);
         this.fishes.splice(i, 1);
 
-        // Конец сессии после улова
-        setTimeout(() => this.endSession(false, false), 800);
+        this.lineLength = 0;
+        this.isHolding = false;
+        this.tension = Math.max(0, this.tension * 0.4);
+        if (this.fishes.length < 4) setTimeout(() => this.spawnFishes(), 600);
         return;
       }
     }
@@ -514,7 +532,7 @@ export class FishingSessionScene extends BaseScene {
     }
   }
 
-  private showCatchEffect(name: string, value: number, color: string, baitBonus = 0, baitMatched = false) {
+  private showCatchEffect(name: string, value: number, color: string, baitBonus = 0, baitMatched = false, iconPath = '') {
     const baitLine = this.selectedBait && baitBonus !== 0
       ? `<div style="font-family:'Rajdhani',monospace;font-size:14px;font-weight:600;color:${baitMatched ? '#2ecc71' : '#e74c3c'};margin-top:4px">
           ${this.selectedBait.name}: ${baitBonus > 0 ? '+' : ''}${baitBonus}% к шансу
@@ -536,7 +554,8 @@ export class FishingSessionScene extends BaseScene {
     `;
     banner.innerHTML = `
       <div style="font-family:'Press Start 2P','Courier New',monospace;font-size:11px;color:${color};letter-spacing:2px;margin-bottom:6px">ПОЙМАНО!</div>
-      <div style="font-family:'Rajdhani',monospace;font-size:22px;font-weight:700;color:#ecf0f1;margin-bottom:4px">🐟 ${name}</div>
+      ${iconPath ? `<img src="${iconPath}" style="width:48px;height:48px;image-rendering:pixelated;margin:0 auto 6px;display:block;border-radius:6px;background:rgba(0,0,0,0.3);" onerror="this.style.display='none'">` : ''}
+      <div style="font-family:'Rajdhani',monospace;font-size:22px;font-weight:700;color:#ecf0f1;margin-bottom:4px">${name}</div>
       <div style="font-family:'Rajdhani',monospace;font-size:20px;font-weight:700;color:#27ae60">+$${value}</div>
       ${baitLine}
     `;
@@ -594,6 +613,7 @@ export class FishingSessionScene extends BaseScene {
 
     this.analytics.logEvent('session_end', {
       levelId: this.levelId, attempts: this.attempts,
+      biomeId: this.biomeId, checkpointIndex: this.checkpointIndex,
       caught: this.caughtFishes.length, value: this.sessionValue, isCrash
     });
 
@@ -722,10 +742,27 @@ export class FishingSessionScene extends BaseScene {
       caught:     this.caughtFishes,
       isCrash,
       levelId:    this.levelId,
+      biomeId:    this.biomeId,
+      checkpointIndex: this.checkpointIndex,
       attempts:   this.attempts,
       totalValue: this.sessionValue,
       playTime,
     });
+  }
+
+  private normalizeBiomeId(id: string): string {
+    if (id === 'rio_salado_l1') return 'rio_salado';
+    if (id === 'nahuel_huapi_l2') return 'nahuel_huapi';
+    if (id === 'lago_argentino_l3') return 'lago_argentino';
+    return id;
+  }
+
+  private getBiomeLevel(id: string): number {
+    return getBiomeById(id)?.level ?? 1;
+  }
+
+  private normalizeBaitId(id: string): string {
+    return id === 'fly_lure' ? 'fly' : id;
   }
 
   // ── UPDATE ────────────────────────────────────────────────────

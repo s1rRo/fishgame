@@ -28,6 +28,16 @@ export abstract class BaseScene {
 
   public stop(): void {
     this.uiContainer.innerHTML = '';
+    this.scene.traverse((obj) => {
+      const mesh = obj as THREE.Mesh;
+      if (mesh.geometry) mesh.geometry.dispose();
+      const material = mesh.material;
+      if (Array.isArray(material)) {
+        material.forEach(m => m.dispose());
+      } else if (material) {
+        material.dispose();
+      }
+    });
     this.scene.clear();
   }
 

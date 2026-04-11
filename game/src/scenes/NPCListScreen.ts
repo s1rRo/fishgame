@@ -107,9 +107,16 @@ export class NPCListScreen extends BaseScene {
       npcCard.addEventListener('mouseenter', () => { npcCard.style.transform = 'scale(1.05)'; });
       npcCard.addEventListener('mouseleave', () => { npcCard.style.transform = 'scale(1)'; });
 
-      // 3D canvas preview
+      // NPC portrait image
+      const npcImg = document.createElement('img');
+      npcImg.src = npc.iconPath;
+      npcImg.style.cssText = 'width:80px;height:80px;margin:0 auto 8px;border-radius:50%;overflow:hidden;image-rendering:pixelated;background:rgba(0,0,0,0.3);display:block;object-fit:cover;';
+      npcImg.onerror = () => { npcImg.style.display = 'none'; };
+      npcCard.appendChild(npcImg);
+
+      // 3D canvas preview (fallback)
       const canvasWrap = document.createElement('div');
-      canvasWrap.style.cssText = 'width:80px;height:80px;margin:0 auto 8px;border-radius:50%;overflow:hidden;';
+      canvasWrap.style.cssText = 'width:80px;height:80px;margin:0 auto 8px;border-radius:50%;overflow:hidden;display:none;';
       npcCard.appendChild(canvasWrap);
 
       // Имя

@@ -14,6 +14,7 @@ import {
   getSectionStyle, getButtonStyle, getButtonRowStyle,
   applyButtonHover, createCloseButton,
 } from '../ui/DesignSystem';
+import { getResourceAmount, resolveBuildingId } from '../utils/IdAliases';
 import type { PlayerProfile } from '../models/Player';
 
 export class CraftingPopup extends BaseScene {
@@ -47,9 +48,10 @@ export class CraftingPopup extends BaseScene {
     const player = await DatabaseService.getInstance().getPlayerProfile(user.uid);
     if (!player) { this.goBack(); return; }
 
+    const configBuildingId = resolveBuildingId(this.buildingId);
     // Рецепты для этого здания
-    const recipes = CRAFTING_RECIPES.filter(r => r.requiredBuilding === this.buildingId);
-    const activeJob = player.activeCraftJobs.find(j => j.buildingId === this.buildingId);
+    const recipes = CRAFTING_RECIPES.filter(r => resolveBuildingId(r.requiredBuilding) === configBuildingId);
+    const activeJob = player.activeCraftJobs.find(j => resolveBuildingId(j.buildingId) === configBuildingId);
     const activeRecipe = activeJob ? CRAFTING_RECIPES.find(r => r.id === activeJob.recipeId) : null;
 
     this.overlay = document.createElement('div');
@@ -108,7 +110,10 @@ export class CraftingPopup extends BaseScene {
     recipe: CraftingRecipe,
   ): void {
     const canAfford = this.craftService.canAfford(player, recipe.id);
-    const buildingLevel = (player.farmBuildings as any)?.[recipe.requiredBuilding]?.level ?? 0;
+    const resolvedRecipeBuildingId = resolveBuildingId(recipe.requiredBuilding);
+    const buildingLevel = (player.farmBuildings as any)?.[resolvedRecipeBuildingId]?.level
+      ?? (player.farmBuildings as any)?.[recipe.requiredBuilding]?.level
+      ?? 0;
     const hasBuilding = buildingLevel >= recipe.requiredBuildingLevel;
     const canStart = canAfford && hasBuilding;
 
@@ -132,7 +137,7 @@ export class CraftingPopup extends BaseScene {
     const inputsDiv = document.createElement('div');
     inputsDiv.style.cssText = 'font-size:12px;color:#bdc3c7;margin-bottom:4px;';
     const inputTexts = recipe.inputs.map(inp => {
-      const have = player.resources?.[inp.resourceId] ?? 0;
+      const have = getResourceAmount(player.resources, inp.resourceId);
       const enough = have >= inp.amount;
       return `<span style="color:${enough ? '#27ae60' : '#e74c3c'};">${have}/${inp.amount}</span> ${inp.resourceId}`;
     });
@@ -161,7 +166,7 @@ export class CraftingPopup extends BaseScene {
     if (canStart) {
       applyButtonHover(startBtn);
       startBtn.addEventListener('click', async () => {
-        const job = this.craftService.startCraft(player, recipe.id, this.buildingId);
+        const job = this.craftService.startCraft(player, recipe.id, resolveBuildingId(this.buildingId));
         if (job) {
           await DatabaseService.getInstance().updatePlayerStats(uid, {
             resources: player.resources,
@@ -221,8 +226,9 @@ export class CraftingPopup extends BaseScene {
 
     // Обновляем прогресс каждую секунду
     const updateProgress = () => {
-      const progress = this.craftService.getProgress(player, this.buildingId);
-      const remaining = this.craftService.getRemainingSeconds(player, this.buildingId);
+      const configBuildingId = resolveBuildingId(this.buildingId);
+      const progress = this.craftService.getProgress(player, configBuildingId);
+      const remaining = this.craftService.getRemainingSeconds(player, configBuildingId);
       barFill.style.width = `${Math.round(progress * 100)}%`;
 
       if (remaining > 0) {
@@ -244,7 +250,7 @@ export class CraftingPopup extends BaseScene {
     this.timerHandle = window.setInterval(updateProgress, 1000);
 
     collectBtn.addEventListener('click', async () => {
-      const result = this.craftService.completeCraft(player, this.buildingId);
+      const result = this.craftService.completeCraft(player, resolveBuildingId(this.buildingId));
       if (!result) return;
 
       await DatabaseService.getInstance().updatePlayerStats(uid, {

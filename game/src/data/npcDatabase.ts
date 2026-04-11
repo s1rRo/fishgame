@@ -24,6 +24,7 @@ export interface NPCDefinition {
   trainingCostPerLevel: number;   // softCoins
   trainingTimeHours: number;
   avatarMeshColor: number;        // THREE.Color hex
+  iconPath: string;               // PNG portrait path
   dialogueLines: string[];
   seasonalOnly: boolean;
   availableSeasons?: number[];
@@ -43,6 +44,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 200,
     trainingTimeHours: 2,
     avatarMeshColor: 0xd4a07a,
+    iconPath: '/assets/images/npc/npc_01.png',
     dialogueLines: ['¡Hola! Готов к работе!', 'Дай мне топор — срублю всё!', 'Универсал — моё второе имя.'],
     seasonalOnly: false,
   },
@@ -59,6 +61,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 400,
     trainingTimeHours: 4,
     avatarMeshColor: 0xe8b87a,
+    iconPath: '/assets/images/npc/npc_02.png',
     dialogueLines: ['Рыба сама идёт ко мне!', 'Знаю каждую травку в пампасах.', 'Дай мне удочку — и увидишь чудо.'],
     seasonalOnly: false,
   },
@@ -75,6 +78,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 200,
     trainingTimeHours: 2,
     avatarMeshColor: 0xa0785a,
+    iconPath: '/assets/images/npc/npc_03.png',
     dialogueLines: ['Строю быстрее всех!', 'Камень и дерево — мои друзья.', 'Дом построю за один день!'],
     seasonalOnly: false,
   },
@@ -91,6 +95,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 200,
     trainingTimeHours: 2,
     avatarMeshColor: 0xf0c080,
+    iconPath: '/assets/images/npc/npc_04.png',
     dialogueLines: ['Люблю утреннюю рыбалку!', 'Тишина реки — лучшая музыка.', 'Сегодня поймаем большую!'],
     seasonalOnly: false,
   },
@@ -107,6 +112,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 400,
     trainingTimeHours: 4,
     avatarMeshColor: 0xc49870,
+    iconPath: '/assets/images/npc/npc_05.png',
     dialogueLines: ['Руда и камень — моя стихия!', 'Найду любое месторождение.', 'Лучший добытчик в деревне!'],
     seasonalOnly: false,
   },
@@ -123,6 +129,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 800,
     trainingTimeHours: 6,
     avatarMeshColor: 0xf0d0a0,
+    iconPath: '/assets/images/npc/npc_06.png',
     dialogueLines: ['Мастер-рыбак к вашим услугам!', 'Чую рыбу за километр.', 'Легендарный улов — мой стиль.'],
     seasonalOnly: false,
   },
@@ -139,6 +146,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 800,
     trainingTimeHours: 6,
     avatarMeshColor: 0x8B6914,
+    iconPath: '/assets/images/npc/npc_07.png',
     dialogueLines: ['Построю что угодно!', 'Камень поддаётся моим рукам.', 'Мастер-строитель — это я.'],
     seasonalOnly: false,
   },
@@ -155,6 +163,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 2000,
     trainingTimeHours: 8,
     avatarMeshColor: 0xffd700,
+    iconPath: '/assets/images/npc/npc_08.png',
     dialogueLines: ['Легенда рыбалки здесь!', 'Ни одна рыба не уйдёт.', 'Травы и рыба — моя жизнь.'],
     seasonalOnly: false,
   },
@@ -171,6 +180,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 2000,
     trainingTimeHours: 8,
     avatarMeshColor: 0xb8860b,
+    iconPath: '/assets/images/npc/npc_09.png',
     dialogueLines: ['Архитектор Томас к услугам!', 'Любое здание — за полцены.', 'Руда? Камень? Без проблем!'],
     seasonalOnly: false,
   },
@@ -187,6 +197,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 5000,
     trainingTimeHours: 12,
     avatarMeshColor: 0x00bfff,
+    iconPath: '/assets/images/npc/npc_10.png',
     dialogueLines: ['Река говорит со мной...', 'Я — часть воды и земли.', 'Легендарная сила течёт во мне.'],
     seasonalOnly: false,
   },
@@ -203,6 +214,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 800,
     trainingTimeHours: 6,
     avatarMeshColor: 0x8B4513,
+    iconPath: '/assets/images/npc/npc_11.png',
     dialogueLines: ['Гаучо никогда не сдаётся!', 'Пампасы — мой дом.', 'Сезонный работник — но лучший!'],
     seasonalOnly: true,
     availableSeasons: [1, 3],
@@ -220,6 +232,7 @@ export const NPC_DATABASE: NPCDefinition[] = [
     trainingCostPerLevel: 2000,
     trainingTimeHours: 8,
     avatarMeshColor: 0x9b59b6,
+    iconPath: '/assets/images/npc/npc_12.png',
     dialogueLines: ['Духи предков ведут меня.', 'Вижу рыбу сквозь воду.', 'Сезон щедрости пришёл!'],
     seasonalOnly: true,
     availableSeasons: [2, 4],

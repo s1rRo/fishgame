@@ -115,9 +115,16 @@ export class PetCollectionScreen extends BaseScene {
       petCard.addEventListener('mouseenter', () => { petCard.style.transform = 'scale(1.05)'; });
       petCard.addEventListener('mouseleave', () => { petCard.style.transform = 'scale(1)'; });
 
-      // 3D canvas
+      // Pet icon image
+      const petImg = document.createElement('img');
+      petImg.src = pet.iconPath;
+      petImg.style.cssText = 'width:64px;height:64px;margin:0 auto 6px;border-radius:8px;image-rendering:pixelated;background:rgba(0,0,0,0.3);display:block;object-fit:cover;';
+      petImg.onerror = () => { petImg.style.display = 'none'; };
+      petCard.appendChild(petImg);
+
+      // 3D canvas (fallback)
       const canvasWrap = document.createElement('div');
-      canvasWrap.style.cssText = 'width:64px;height:64px;margin:0 auto 6px;border-radius:8px;overflow:hidden;';
+      canvasWrap.style.cssText = 'width:64px;height:64px;margin:0 auto 6px;border-radius:8px;overflow:hidden;display:none;';
       petCard.appendChild(canvasWrap);
 
       // Name

@@ -81,19 +81,56 @@ export class AudioManager {
     const ctx = this.ensureContext();
     if (!this.musicGain) return;
 
-    // Простая процедурная музыка — тихие осцилляторы создают эмбиент
+    // Процедурная музыка — эмбиент с тремоло и детюном
     const freqs = this.getMusicFreqs(track);
-    for (const freq of freqs) {
+    const now = ctx.currentTime;
+
+    for (let i = 0; i < freqs.length; i++) {
+      const freq = freqs[i];
+
+      // Основной тон — sine
       const osc = ctx.createOscillator();
       osc.type = 'sine';
       osc.frequency.value = freq;
 
+      // LFO тремоло для живости
+      const lfo = ctx.createOscillator();
+      lfo.type = 'sine';
+      lfo.frequency.value = 0.3 + i * 0.1; // слегка разная скорость
+
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = 0.04; // глубина тремоло
+
+      lfo.connect(lfoGain);
+
       const gain = ctx.createGain();
-      gain.gain.value = 0.03;
+      gain.gain.value = 0.10;
+      lfoGain.connect(gain.gain); // модулируем громкость
       osc.connect(gain);
       gain.connect(this.musicGain);
+
+      // Плавное нарастание
+      gain.gain.setValueAtTime(0, now);
+      gain.gain.linearRampToValueAtTime(0.10, now + 2);
+
       osc.start();
-      this.musicOscillators.push(osc);
+      lfo.start();
+      this.musicOscillators.push(osc, lfo);
+
+      // Второй слой — detune для хоруса (только для каждого второго)
+      if (i % 2 === 0) {
+        const osc2 = ctx.createOscillator();
+        osc2.type = 'triangle';
+        osc2.frequency.value = freq * 1.002; // лёгкий детюн
+        const gain2 = ctx.createGain();
+        gain2.gain.value = 0.05;
+        gain2.gain.setValueAtTime(0, now);
+        gain2.gain.linearRampToValueAtTime(0.05, now + 3);
+        osc2.connect(gain2);
+        gain2.connect(this.musicGain);
+        osc2.start();
+        this.musicOscillators.push(osc2);
+      }
     }
   }
 

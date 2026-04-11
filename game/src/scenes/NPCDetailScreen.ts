@@ -89,11 +89,23 @@ export class NPCDetailScreen extends BaseScene {
     // Close button
     card.appendChild(createCloseButton(() => this.goBack()));
 
-    // ── 3D Model Container ──────────────────────────────────
+    // ── NPC Portrait Image ─────────────────────────────────
+    const npcPortrait = document.createElement('img');
+    npcPortrait.src = npc.iconPath;
+    npcPortrait.style.cssText = `
+      width:120px;height:120px;margin:0 auto 12px;display:block;
+      border-radius:50%;border:3px solid ${color};
+      image-rendering:pixelated;object-fit:cover;
+      background:radial-gradient(circle, rgba(26,42,74,0.8), rgba(13,27,42,0.9));
+    `;
+    npcPortrait.onerror = () => { npcPortrait.style.display = 'none'; };
+    card.appendChild(npcPortrait);
+
+    // ── 3D Model Container (fallback) ───────────────────────
     const modelWrap = document.createElement('div');
     modelWrap.style.cssText = `
       width:120px;height:120px;margin:0 auto 12px;
-      border-radius:50%;border:3px solid ${color};overflow:hidden;
+      border-radius:50%;border:3px solid ${color};overflow:hidden;display:none;
       background:radial-gradient(circle, rgba(26,42,74,0.8), rgba(13,27,42,0.9));
     `;
     card.appendChild(modelWrap);

@@ -6,6 +6,7 @@
 import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, isFirebaseAvailable } from './firebase-config';
 import { PlayerProfile, DEFAULT_PLAYER_PROFILE } from '../models/Player';
+import { resolveBuildingId, resolveResourceId } from '../utils/IdAliases';
 
 const LS_PREFIX = 'rl_profile_';
 
@@ -45,6 +46,20 @@ function lsMerge(uid: string, partial: Partial<PlayerProfile>): PlayerProfile | 
   return merged;
 }
 
+function withoutUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.map(item => withoutUndefined(item)) as T;
+  }
+  if (value && typeof value === 'object') {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, child] of Object.entries(value as Record<string, unknown>)) {
+      if (child !== undefined) cleaned[key] = withoutUndefined(child);
+    }
+    return cleaned as T;
+  }
+  return value;
+}
+
 export class DatabaseService {
   private static instance: DatabaseService;
   private autoSaveInterval: ReturnType<typeof setInterval> | null = null;
@@ -72,7 +87,9 @@ export class DatabaseService {
     if (!isFirebaseAvailable) return null;
     try {
       const snap = await getDoc(doc(db, 'users', uid));
-      return snap.exists() ? (snap.data() as PlayerProfile) : null;
+      if (!snap.exists()) return null;
+      const data = snap.data() as PlayerProfile;
+      return { ...data, uid: data.uid ?? uid };
     } catch (e) {
       console.warn('[DB] Firebase read failed, using localStorage', e);
       return null;
@@ -81,14 +98,14 @@ export class DatabaseService {
 
   private async _fbSet(uid: string, data: PlayerProfile): Promise<void> {
     if (!isFirebaseAvailable) return;
-    try { await setDoc(doc(db, 'users', uid), data); } catch (e) {
+    try { await setDoc(doc(db, 'users', uid), withoutUndefined(data)); } catch (e) {
       console.warn('[DB] Firebase write failed', e);
     }
   }
 
   private async _fbUpdate(uid: string, partial: Record<string, unknown>): Promise<void> {
     if (!isFirebaseAvailable) return;
-    try { await updateDoc(doc(db, 'users', uid), partial); } catch (e) {
+    try { await updateDoc(doc(db, 'users', uid), withoutUndefined(partial)); } catch (e) {
       console.warn('[DB] Firebase update failed', e);
     }
   }
@@ -100,14 +117,14 @@ export class DatabaseService {
     // Сначала пробуем Firebase
     const fbData = await this._fbGet(uid);
     if (fbData) {
-      this.lastKnownProfile = this._ensureStartingCoins(fbData);
+      this.lastKnownProfile = this._normalizeProfile(this._ensureStartingCoins(fbData));
       lsSet(uid, this.lastKnownProfile);
       return this.lastKnownProfile;
     }
     // Fallback — localStorage
     const local = lsGet(uid);
     if (local) {
-      this.lastKnownProfile = this._ensureStartingCoins(local);
+      this.lastKnownProfile = this._normalizeProfile(this._ensureStartingCoins(local));
       return this.lastKnownProfile;
     }
     return null;
@@ -124,6 +141,159 @@ export class DatabaseService {
       }
     }
     return profile;
+  }
+
+  /** Мягкая миграция старых профилей Europe → Argentina MVP. */
+  private _normalizeProfile(profile: PlayerProfile): PlayerProfile {
+    let changed = false;
+    const next = profile;
+
+    const regions = Array.isArray(next.unlockedRegions) ? next.unlockedRegions : [];
+    if (!regions.includes('rio_salado') || regions.includes('europe')) {
+      next.unlockedRegions = Array.from(new Set([...regions.filter(r => r !== 'europe'), 'rio_salado']));
+      changed = true;
+    }
+
+    const starterFish = ['carp_common', 'perch_river', 'pejerrey_silver', 'catfish_small'];
+    const legacyFish = new Set(['perch', 'carp', 'roach', 'ruffe']);
+    const fishUnlocked = Array.isArray(next.fishUnlocked) ? next.fishUnlocked : [];
+    if (fishUnlocked.some(id => legacyFish.has(id)) || starterFish.some(id => !fishUnlocked.includes(id))) {
+      next.fishUnlocked = Array.from(new Set([
+        ...fishUnlocked.filter(id => !legacyFish.has(id)),
+        ...starterFish,
+      ]));
+      changed = true;
+    }
+
+    if (!next.currentBiomeId) {
+      next.currentBiomeId = 'rio_salado';
+      changed = true;
+    }
+
+    if (!next.offlineEarningsAt) {
+      next.offlineEarningsAt = Date.now();
+      changed = true;
+    }
+
+    if (!next.lootboxInventory) {
+      next.lootboxInventory = { ...DEFAULT_PLAYER_PROFILE.lootboxInventory };
+      changed = true;
+    } else {
+      next.lootboxInventory = { ...DEFAULT_PLAYER_PROFILE.lootboxInventory, ...next.lootboxInventory };
+    }
+
+    const arrayDefaults: Array<keyof PlayerProfile> = [
+      'activeNPCIds', 'pondFish', 'ownedCosmetics', 'ownedPetIds',
+      'unlockedRecipes', 'activeCraftJobs', 'achievements', 'auctionHistory',
+      'inventory', 'riverLordTitles',
+    ];
+    arrayDefaults.forEach((key) => {
+      if (!Array.isArray(next[key])) {
+        (next as any)[key] = [...((DEFAULT_PLAYER_PROFILE as any)[key] ?? [])];
+        changed = true;
+      }
+    });
+
+    const objectDefaults: Array<keyof PlayerProfile> = [
+      'resources', 'npcLevels', 'npcDispatches', 'petEquipped',
+      'storageSlots', 'fishAtlas', 'levelsProgress', 'riverLords',
+      'farmBuildings', 'lastAdWatch', 'seasonPass', 'equippedCosmetics',
+    ];
+    objectDefaults.forEach((key) => {
+      if (!next[key] || typeof next[key] !== 'object') {
+        (next as any)[key] = { ...((DEFAULT_PLAYER_PROFILE as any)[key] ?? {}) };
+        changed = true;
+      }
+    });
+
+    if (this._normalizeBuildingAliases(next)) changed = true;
+    if (this._normalizeResourceAliases(next)) changed = true;
+    if (this._normalizeStorageSlotAliases(next)) changed = true;
+
+    if (!next.schemaVersion || next.schemaVersion < DEFAULT_PLAYER_PROFILE.schemaVersion) {
+      next.schemaVersion = DEFAULT_PLAYER_PROFILE.schemaVersion;
+      changed = true;
+    }
+
+    if (changed) {
+      lsSet(next.uid, next);
+      if (isFirebaseAvailable) {
+        setDoc(doc(db, 'users', next.uid), {
+          unlockedRegions: next.unlockedRegions,
+          fishUnlocked: next.fishUnlocked,
+          currentBiomeId: next.currentBiomeId,
+          offlineEarningsAt: next.offlineEarningsAt,
+          resources: next.resources,
+          storageSlots: next.storageSlots,
+          farmBuildings: next.farmBuildings,
+        }, { merge: true }).catch(() => {});
+      }
+    }
+
+    return next;
+  }
+
+  private _normalizeBuildingAliases(profile: PlayerProfile): boolean {
+    let changed = false;
+    const buildings = profile.farmBuildings as any;
+    const defaults = DEFAULT_PLAYER_PROFILE.farmBuildings as any;
+
+    for (const [key, value] of Object.entries(defaults)) {
+      if (!buildings[key]) {
+        buildings[key] = { ...(value as object) };
+        changed = true;
+      }
+    }
+
+    for (const legacyId of ['storage', 'npcFisher1']) {
+      const canonicalId = resolveBuildingId(legacyId);
+      if (canonicalId === legacyId) continue;
+
+      if (buildings[legacyId] && !buildings[canonicalId]) {
+        buildings[canonicalId] = { ...buildings[legacyId] };
+        changed = true;
+      } else if (buildings[canonicalId] && !buildings[legacyId]) {
+        buildings[legacyId] = { ...buildings[canonicalId] };
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
+  private _normalizeResourceAliases(profile: PlayerProfile): boolean {
+    let changed = false;
+    const resources = profile.resources ?? {};
+    profile.resources = resources;
+
+    for (const legacyId of ['oak_wood', 'beech_wood', 'iron_ore', 'fly']) {
+      const canonicalId = resolveResourceId(legacyId);
+      if (canonicalId === legacyId) continue;
+      if (resources[legacyId] !== undefined && resources[canonicalId] === undefined) {
+        resources[canonicalId] = resources[legacyId];
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
+  private _normalizeStorageSlotAliases(profile: PlayerProfile): boolean {
+    let changed = false;
+    const storageSlots = profile.storageSlots ?? {};
+    profile.storageSlots = storageSlots;
+
+    for (const slots of Object.values(storageSlots)) {
+      for (const slot of slots ?? []) {
+        const canonicalId = resolveResourceId(slot.resourceId);
+        if (canonicalId !== slot.resourceId) {
+          slot.resourceId = canonicalId;
+          changed = true;
+        }
+      }
+    }
+
+    return changed;
   }
 
   public async createInitialProfile(uid: string, displayName: string, email: string | null): Promise<void> {
@@ -167,8 +337,21 @@ export class DatabaseService {
     const data = await this.getPlayerProfile(uid);
     if (!data) return;
     const inventory = [...((data as any).inventory || []), ...caughtFish];
+    const fishAtlas = { ...(data.fishAtlas ?? {}) };
+    caughtFish.forEach((fish) => {
+      const fishId = fish.fishId ?? fish.id;
+      if (!fishId) return;
+      const prev = fishAtlas[fishId] ?? { caught: false, maxWeight: 0, count: 0 };
+      fishAtlas[fishId] = {
+        caught: true,
+        maxWeight: Math.max(prev.maxWeight ?? 0, fish.weight ?? 0),
+        count: (prev.count ?? 0) + 1,
+        firstCaughtAt: prev.firstCaughtAt ?? fish.timestamp ?? Date.now(),
+      };
+    });
     await this.updatePlayerStats(uid, {
       inventory,
+      fishAtlas,
       totalAttemptsAllTime: ((data as any).totalAttemptsAllTime || 0) + attempts,
       totalFishCaught: ((data as any).totalFishCaught || 0) + caughtFish.length,
       totalSessions: (data.totalSessions || 0) + 1,

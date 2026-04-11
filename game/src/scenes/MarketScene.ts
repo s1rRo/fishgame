@@ -12,8 +12,10 @@ import { TopHUD } from '../ui/TopHUD';
 import { CaughtFishRecord } from '../models/Player';
 import { matLP, LP, applyLowPolyToScene, setupGameLighting } from '../utils/LowPolyStyle';
 import { CURRENCY_CONFIG } from '../data/balanceConfig';
+import { argentineFishDatabase } from '../data/fishDatabase';
 import { AuctionService } from '../services/AuctionService';
 import { EconomyManager } from '../services/EconomyManager';
+import { AudioManager } from '../services/AudioManager';
 
 /**
  * Полная формула аукционной цены из тз/04_GAMEDESIGN_DOC.md + тз/03_TECHNICAL_SPEC.md:
@@ -75,6 +77,7 @@ export class MarketScene extends BaseScene {
     await this.loadData();
     this.setup3D();
     this.renderUI();
+    AudioManager.getInstance().playMusic('market');
   }
 
   private async loadData() {
@@ -281,7 +284,10 @@ export class MarketScene extends BaseScene {
         background:rgba(255,255,255,0.06); border-left:4px solid ${fish.processed ? '#e67e22' : '#2ecc71'};
         font-family:'Courier New',monospace; color:#fff;
       `;
+      const fishDef = argentineFishDatabase.find(fd => fd.id === fish.fishId);
+      const fishIcon = fishDef?.iconPath ?? '/assets/images/fish/fish_01.png';
       row.innerHTML = `
+        <img src="${fishIcon}" style="width:40px;height:40px;image-rendering:pixelated;border-radius:6px;background:rgba(0,0,0,0.3);" onerror="this.style.display='none'">
         <div style="flex:1">
           <div style="font-size:17px;font-weight:bold">${fish.name}${fish.processed ? ' 🔥' : ''}</div>
           <div style="font-size:14px;color:#bdc3c7">${fish.weight.toFixed(2)} кг — $${fish.value}</div>
@@ -483,7 +489,10 @@ export class MarketScene extends BaseScene {
     }
 
     // Таблица всех ресурсов
-    const resources = ['carp', 'trout', 'salmon_king', 'perch', 'carp_smoked', 'trout_smoked', 'oak_wood', 'stone', 'worm', 'moth', 'lure', 'fly'];
+    const resources = [
+      'carp', 'trout', 'salmon_king', 'perch', 'carp_smoked', 'trout_smoked',
+      'wood_oak', 'wood_beech', 'stone', 'ore_iron', 'worm', 'moth', 'lure', 'fly_lure', 'bread',
+    ];
     for (const resId of resources) {
       const info = economy.getPriceInfo(resId);
       if (!info) continue;

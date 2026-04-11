@@ -12,6 +12,7 @@ import { AudioManager } from '../services/AudioManager';
 import { getBuildingById, getBuildingLevel } from '../data/buildingDatabase';
 import { CRAFTING_RECIPES } from '../data/craftingRecipes';
 import { matLP, LP } from '../utils/LowPolyStyle';
+import { getResourceAmount, resolveBuildingId, spendResourceAmount } from '../utils/IdAliases';
 import {
   addEscHandler, getOverlayStyle, getCardStyle, getTitleStyle,
   getSectionStyle, getButtonStyle, getButtonRowStyle,
@@ -57,12 +58,13 @@ export class BuildingScreen extends BaseScene {
     const player = await DatabaseService.getInstance().getPlayerProfile(user.uid);
     if (!player) { this.goBack(); return; }
 
-    const building = getBuildingById(this.buildingId);
+    const configBuildingId = resolveBuildingId(this.buildingId);
+    const building = getBuildingById(configBuildingId);
     if (!building) { this.goBack(); return; }
 
-    const currentLevel = (player.farmBuildings as any)?.[this.buildingId]?.level ?? 0;
+    const currentLevel = this.getPlayerBuilding(player, configBuildingId)?.level ?? 0;
     const nextLevel = currentLevel + 1;
-    const nextConfig = getBuildingLevel(this.buildingId, nextLevel);
+    const nextConfig = getBuildingLevel(configBuildingId, nextLevel);
     const isMaxLevel = !nextConfig || nextLevel > building.maxLevel;
 
     const resStr = nextConfig
@@ -71,7 +73,7 @@ export class BuildingScreen extends BaseScene {
 
     const canAfford = nextConfig
       ? player.softCoins >= nextConfig.upgradeCostSoft &&
-        nextConfig.upgradeResources.every(r => (player.resources?.[r.resourceId] ?? 0) >= r.quantity)
+        nextConfig.upgradeResources.every(r => getResourceAmount(player.resources, r.resourceId) >= r.quantity)
       : false;
 
     this.overlay = document.createElement('div');
@@ -148,14 +150,14 @@ export class BuildingScreen extends BaseScene {
     }
 
     // Кнопка "Крафт" если здание имеет рецепты
-    const hasRecipes = CRAFTING_RECIPES.some(r => r.requiredBuilding === this.buildingId);
+    const hasRecipes = CRAFTING_RECIPES.some(r => resolveBuildingId(r.requiredBuilding) === configBuildingId);
     if (hasRecipes && currentLevel > 0) {
       const craftBtn = document.createElement('button');
       craftBtn.textContent = '\u2692 КРАФТ';
       craftBtn.style.cssText = getButtonStyle('primary', 'md');
       applyButtonHover(craftBtn);
       craftBtn.addEventListener('click', () => {
-        this.sceneManager.startScene('CraftingPopup', { buildingId: this.buildingId });
+        this.sceneManager.startScene('CraftingPopup', { buildingId: configBuildingId });
       });
       btnRow.appendChild(craftBtn);
     }
@@ -175,7 +177,12 @@ export class BuildingScreen extends BaseScene {
     this.overlay.addEventListener('click', (e) => { if (e.target === this.overlay) this.goBack(); });
 
     // Create 3D preview
-    requestAnimationFrame(() => this.create3DPreview(modelWrap, this.buildingId, currentLevel));
+    requestAnimationFrame(() => this.create3DPreview(modelWrap, configBuildingId, currentLevel));
+  }
+
+  private getPlayerBuilding(player: PlayerProfile, buildingId: string): any {
+    const buildings = player.farmBuildings as any;
+    return buildings[buildingId] ?? buildings[this.buildingId];
   }
 
   // ── 3D Building Preview ────────────────────────────────────
@@ -387,17 +394,27 @@ export class BuildingScreen extends BaseScene {
     resources: Array<{ resourceId: string; quantity: number }>,
     newLevel: number,
   ): Promise<void> {
+    const configBuildingId = resolveBuildingId(this.buildingId);
     player.softCoins -= cost;
     for (const r of resources) {
-      if (player.resources) {
-        player.resources[r.resourceId] = (player.resources[r.resourceId] ?? 0) - r.quantity;
-      }
+      spendResourceAmount(player.resources, r.resourceId, r.quantity);
     }
 
     const buildings = player.farmBuildings as any;
-    if (buildings[this.buildingId]) {
+    const now = Date.now();
+    if (!buildings[configBuildingId]) {
+      buildings[configBuildingId] = { level: 0, upgradedAt: 0, visualStage: 0 };
+    }
+    buildings[configBuildingId].level = newLevel;
+    buildings[configBuildingId].upgradedAt = now;
+    buildings[configBuildingId].visualStage = newLevel;
+
+    if (this.buildingId !== configBuildingId) {
+      if (!buildings[this.buildingId]) {
+        buildings[this.buildingId] = { level: 0, upgradedAt: 0, visualStage: 0 };
+      }
       buildings[this.buildingId].level = newLevel;
-      buildings[this.buildingId].upgradedAt = Date.now();
+      buildings[this.buildingId].upgradedAt = now;
       buildings[this.buildingId].visualStage = newLevel;
     }
 

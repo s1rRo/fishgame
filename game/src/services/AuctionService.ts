@@ -6,6 +6,7 @@
 
 import type { PlayerProfile, AuctionHistoryEntry } from '../models/Player';
 import { EconomyManager } from './EconomyManager';
+import { addResourceAmount, getResourceAmount, resolveResourceId, spendResourceAmount } from '../utils/IdAliases';
 
 export interface AuctionLot {
   id: string;
@@ -37,17 +38,18 @@ export class AuctionService {
 
   /** Выставить лот на аукцион */
   listItem(player: PlayerProfile, resourceId: string, qty: number, pricePerUnit: number): AuctionLot | null {
-    const available = player.resources[resourceId] ?? 0;
+    const canonicalResourceId = resolveResourceId(resourceId);
+    const available = getResourceAmount(player.resources, canonicalResourceId);
     if (available < qty) return null;
 
     // Списать ресурсы
-    player.resources[resourceId] -= qty;
+    spendResourceAmount(player.resources, canonicalResourceId, qty);
 
     const lot: AuctionLot = {
       id: `lot_${this.nextId++}`,
       sellerUid: player.uid,
       sellerName: player.displayName,
-      resourceId,
+      resourceId: canonicalResourceId,
       qty,
       pricePerUnit,
       totalPrice: qty * pricePerUnit,
@@ -58,7 +60,7 @@ export class AuctionService {
     this.lots.push(lot);
 
     // Обновить supply в экономике
-    EconomyManager.getInstance().updateSupply(resourceId, qty);
+    EconomyManager.getInstance().updateSupply(canonicalResourceId, qty);
 
     return lot;
   }
@@ -74,7 +76,7 @@ export class AuctionService {
     buyer.softCoins -= lot.totalPrice;
 
     // Добавить ресурсы
-    buyer.resources[lot.resourceId] = (buyer.resources[lot.resourceId] ?? 0) + lot.qty;
+    addResourceAmount(buyer.resources, lot.resourceId, lot.qty);
 
     // Обновить demand
     EconomyManager.getInstance().updateDemand(lot.resourceId, lot.qty);
@@ -99,7 +101,10 @@ export class AuctionService {
   /** Получить активные лоты */
   getActiveLots(resourceId?: string): AuctionLot[] {
     let active = this.lots.filter(l => !l.sold);
-    if (resourceId) active = active.filter(l => l.resourceId === resourceId);
+    if (resourceId) {
+      const canonicalResourceId = resolveResourceId(resourceId);
+      active = active.filter(l => resolveResourceId(l.resourceId) === canonicalResourceId);
+    }
     return active.sort((a, b) => a.pricePerUnit - b.pricePerUnit);
   }
 
@@ -111,8 +116,9 @@ export class AuctionService {
     economy.bankBurn(resourceId, burnPercent);
 
     // Убрать лоты этого ресурса (имитация скупки)
+    const canonicalResourceId = resolveResourceId(resourceId);
     this.lots = this.lots.filter(l => {
-      if (l.resourceId === resourceId && !l.sold) {
+      if (resolveResourceId(l.resourceId) === canonicalResourceId && !l.sold) {
         l.sold = true;
         return true;
       }
@@ -128,7 +134,7 @@ export class AuctionService {
     const lowBotResources = [
       { resourceId: 'carp', qtyRange: [10, 30] },
       { resourceId: 'perch', qtyRange: [8, 25] },
-      { resourceId: 'oak_wood', qtyRange: [20, 60] },
+      { resourceId: 'wood_oak', qtyRange: [20, 60] },
       { resourceId: 'stone', qtyRange: [15, 40] },
       { resourceId: 'worm', qtyRange: [5, 15] },
       { resourceId: 'bread', qtyRange: [10, 30] },
@@ -140,8 +146,8 @@ export class AuctionService {
       { resourceId: 'trout', qtyRange: [5, 15] },
       { resourceId: 'carp_smoked', qtyRange: [3, 10] },
       { resourceId: 'trout_smoked', qtyRange: [2, 8] },
-      { resourceId: 'iron_ore', qtyRange: [10, 25] },
-      { resourceId: 'beech_wood', qtyRange: [15, 40] },
+      { resourceId: 'ore_iron', qtyRange: [10, 25] },
+      { resourceId: 'wood_beech', qtyRange: [15, 40] },
       { resourceId: 'moth', qtyRange: [3, 10] },
       { resourceId: 'lure', qtyRange: [2, 8] },
     ];

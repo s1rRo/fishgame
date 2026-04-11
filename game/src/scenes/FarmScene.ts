@@ -14,6 +14,7 @@ import { PlayerProfile, HexFarmState, FarmBuildingPlacement } from '../models/Pl
 import {
   matLP, LP, createRock, createTree, createBranch, createFishMesh, setupGameLighting,
 } from '../utils/LowPolyStyle';
+import { texMat } from '../utils/TextureCache';
 import {
   hexToWorld, worldToHex, hexKey, parseHexKey,
   hexNeighbors, hexesInRadius, buildingFootprint,
@@ -24,6 +25,7 @@ import {
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { CSS2DRenderer, CSS2DObject } from 'three/examples/jsm/renderers/CSS2DRenderer.js';
 import { ParticlePool } from '../utils/ParticlePool';
+import { AudioManager } from '../services/AudioManager';
 
 // ── BUILDING DEFINITIONS ──────────────────────────────────────
 interface BuildingDef {
@@ -150,6 +152,7 @@ export class FarmScene extends BaseScene {
     window.addEventListener('pointerdown', this.onPointerDown);
     window.addEventListener('pointermove', this.onPointerMove);
     await this.loadProfile();
+    AudioManager.getInstance().playMusic('village');
   }
 
   stop() {
@@ -305,10 +308,12 @@ export class FarmScene extends BaseScene {
     this.hexInstances.instanceColor = new THREE.InstancedBufferAttribute(this.hexColors, 3);
     this.scene.add(this.hexInstances);
 
-    // Ocean around the farm
+    // Ocean around the farm (с текстурой воды)
     const oceanGeo = new THREE.PlaneGeometry(120, 120);
-    const ocean = new THREE.Mesh(oceanGeo, new THREE.MeshStandardMaterial({
-      color: 0x1a5276, flatShading: true, transparent: true, opacity: 0.7,
+    const ocean = new THREE.Mesh(oceanGeo, texMat('water', {
+      color: 0x1a5276, transparent: true, opacity: 0.7,
+      roughness: 0.3, metalness: 0.1,
+      repeatX: 24, repeatY: 24,
     }));
     ocean.rotation.x = -Math.PI / 2;
     ocean.position.y = -0.3;
@@ -496,18 +501,18 @@ export class FarmScene extends BaseScene {
     const h = 0.6 + level * 0.5;
     const w = 1.0 + level * 0.15;
 
-    // Body
+    // Body (с текстурой стен)
     const body = new THREE.Mesh(
       new THREE.BoxGeometry(w, h, w),
-      matLP(def.baseColor)
+      texMat('bricks', { color: def.baseColor, repeatX: 2, repeatY: 2 })
     );
     body.position.y = h / 2;
     group.add(body);
 
-    // Roof (pyramid)
+    // Roof (pyramid, с текстурой дерева)
     const roof = new THREE.Mesh(
       new THREE.ConeGeometry(w * 0.75, h * 0.5, 4),
-      matLP(def.roofColor)
+      texMat('wood', { color: def.roofColor })
     );
     roof.rotation.y = Math.PI / 4;
     roof.position.y = h + h * 0.25;
@@ -550,8 +555,9 @@ export class FarmScene extends BaseScene {
     // Water surface with wave animation vertices
     const waterGeo = new THREE.PlaneGeometry(pw, pd, 8, 8);
     waterGeo.computeVertexNormals();
-    const water = new THREE.Mesh(waterGeo, new THREE.MeshStandardMaterial({
-      color: LP.water, flatShading: true, transparent: true, opacity: 0.8,
+    const water = new THREE.Mesh(waterGeo, texMat('water', {
+      color: LP.water, transparent: true, opacity: 0.8,
+      roughness: 0.3, metalness: 0.1, repeatX: 2, repeatY: 2,
     }));
     water.rotation.x = -Math.PI / 2;
     water.position.y = 0.16;

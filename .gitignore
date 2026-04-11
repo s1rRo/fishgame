@@ -10,6 +10,7 @@ dist/
 *.glb
 *.gltf
 ассеты/
+/ассеты 2/Ambient_Maw_Danny_Hesz/Ambient_Maw_Data/sharedassets0.assets.resS
 
 # Documentation / design docs (not needed in repo)
 docs/

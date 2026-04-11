@@ -4,6 +4,7 @@
 // flatShading: true → crisp, кристальный low-poly вид
 // ============================================================
 import * as THREE from 'three';
+import { texMat } from './TextureCache';
 
 // ── Палитра игры ─────────────────────────────────────────────
 export const LP = {
@@ -82,17 +83,18 @@ export function createWaterPlane(w: number, d: number, color = LP.water, opacity
 // ── Создать low-poly дерево ───────────────────────────────────
 export function createTree(scale = 1.0, variant = 1): THREE.Group {
   const g = new THREE.Group();
-  // Ствол
+  // Ствол (с текстурой коры)
   const trunk = new THREE.Mesh(
     new THREE.CylinderGeometry(0.2 * scale, 0.28 * scale, 1.4 * scale, 5),
-    matLP(LP.wood)
+    texMat('tree_bark', { color: LP.wood, repeatX: 1, repeatY: 2 })
   );
   trunk.position.y = 0.7 * scale;
   g.add(trunk);
 
-  // 11 вариантов крон
+  // 11 вариантов крон (с текстурой листвы)
   const v = ((variant - 1) % 11) + 1;
   const crownColors = [0x1e8449, 0x27ae60, 0x2ecc71];
+  const leafMat = (c: number) => texMat('leaves', { color: c });
 
   if (v <= 3) {
     // Конические ёлки (1-3 слоя)
@@ -100,7 +102,7 @@ export function createTree(scale = 1.0, variant = 1): THREE.Group {
     for (let i = 0; i < layers; i++) {
       const crown = new THREE.Mesh(
         new THREE.ConeGeometry((1.2 - i * 0.2) * scale, (1.4 - i * 0.2) * scale, 6),
-        matLP(crownColors[i % 3])
+        leafMat(crownColors[i % 3])
       );
       crown.position.y = (1.8 + i * 0.9) * scale;
       g.add(crown);
@@ -111,14 +113,14 @@ export function createTree(scale = 1.0, variant = 1): THREE.Group {
     for (let i = 0; i < count; i++) {
       const crown = new THREE.Mesh(
         new THREE.IcosahedronGeometry(0.7 * scale, 0),
-        matLP(crownColors[i % 3])
+        leafMat(crownColors[i % 3])
       );
       crown.position.set(i * 0.3 * scale, (2.0 + i * 0.5) * scale, 0);
       g.add(crown);
     }
   } else if (v <= 7) {
     // Цилиндрические (пальма)
-    const crownMat = matLP(v === 6 ? 0x1e8449 : 0x27ae60);
+    const crownMat = texMat('tinyleaves', { color: v === 6 ? 0x1e8449 : 0x27ae60 });
     for (let i = 0; i < 4; i++) {
       const leaf = new THREE.Mesh(
         new THREE.BoxGeometry(0.15 * scale, 0.06 * scale, 0.9 * scale),
@@ -133,7 +135,7 @@ export function createTree(scale = 1.0, variant = 1): THREE.Group {
     // Широкие дубы (box crown)
     const crown = new THREE.Mesh(
       new THREE.BoxGeometry(1.6 * scale, 1.0 * scale, 1.4 * scale),
-      matLP(crownColors[v - 8])
+      leafMat(crownColors[v - 8])
     );
     crown.position.y = 2.2 * scale;
     // Deform slightly
@@ -149,7 +151,7 @@ export function createTree(scale = 1.0, variant = 1): THREE.Group {
     for (let i = 0; i < 2; i++) {
       const crown = new THREE.Mesh(
         new THREE.DodecahedronGeometry(0.65 * scale, 0),
-        matLP(crownColors[i])
+        leafMat(crownColors[i])
       );
       crown.position.set((i - 0.5) * 0.4 * scale, (2.0 + i * 0.4) * scale, 0);
       g.add(crown);
@@ -163,7 +165,7 @@ export function createBranch(scale = 1.0): THREE.Group {
   const g = new THREE.Group();
   const log = new THREE.Mesh(
     new THREE.CylinderGeometry(0.06 * scale, 0.08 * scale, 0.8 * scale, 5),
-    matLP(LP.wood)
+    texMat('tree_bark', { color: LP.wood })
   );
   log.rotation.z = Math.PI / 2 + (Math.random() - 0.5) * 0.4;
   log.position.y = 0.06 * scale;
@@ -190,7 +192,7 @@ export function createRock(scale = 1.0): THREE.Mesh {
     pos.setZ(i, pos.getZ(i) * (0.8 + Math.random() * 0.4));
   }
   geo.computeVertexNormals();
-  return new THREE.Mesh(geo, matLP(LP.rock));
+  return new THREE.Mesh(geo, texMat('rock_color', { color: LP.rock }));
 }
 
 // ── Создать low-poly рыбу ─────────────────────────────────────
